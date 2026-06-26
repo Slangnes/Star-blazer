@@ -2578,6 +2578,78 @@
 
     let toastTimer = null;
     let reconnectTimeout = null;
+    let currentInviteToken = null;
+    let currentAnswerToken = null;
+
+    const SEPARATOR_STR = "__STARBLAZER_DATA__";
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    async function downloadImageWithToken(baseImageUrl, token, filename) {
+        try {
+            const response = await fetch(baseImageUrl);
+            const imageBuffer = await response.arrayBuffer();
+            const imageBytes = new Uint8Array(imageBuffer);
+
+            const tokenWithSeparator = SEPARATOR_STR + token;
+            const tokenBytes = encoder.encode(tokenWithSeparator);
+
+            const combinedBytes = new Uint8Array(imageBytes.length + tokenBytes.length);
+            combinedBytes.set(imageBytes, 0);
+            combinedBytes.set(tokenBytes, imageBytes.length);
+
+            const blob = new Blob([combinedBytes], { type: 'image/jpeg' });
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            URL.revokeObjectURL(link.href);
+        } catch (err) {
+            console.error("Error creating download image:", err);
+            showToast("Failed to generate image file: " + err.message);
+        }
+    }
+
+    function decodeTokenFromImageFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const bytes = new Uint8Array(e.target.result);
+                    const separatorBytes = encoder.encode(SEPARATOR_STR);
+                    let foundIndex = -1;
+                    
+                    for (let i = bytes.length - separatorBytes.length; i >= 0; i--) {
+                        let match = true;
+                        for (let j = 0; j < separatorBytes.length; j++) {
+                            if (bytes[i + j] !== separatorBytes[j]) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            foundIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (foundIndex === -1) {
+                        reject(new Error("This image does not contain a valid connection key. Make sure you uploaded the original file sent by your friend."));
+                        return;
+                    }
+
+                    const tokenStartIndex = foundIndex + separatorBytes.length;
+                    const tokenBytes = bytes.subarray(tokenStartIndex);
+                    const token = decoder.decode(tokenBytes).trim();
+                    resolve(token);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = () => reject(new Error("Failed to read file."));
+            reader.readAsArrayBuffer(file);
+        });
+    }
 
     async function compressString(str) {
         try {
@@ -2621,67 +2693,6 @@
                 return token;
             }
         }
-    }
-
-    function generateQRCode(canvasId, text) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        canvas.style.display = 'none';
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        QRCode.toCanvas(canvas, text, {
-            width: 250,
-            margin: 1,
-            errorCorrectionLevel: 'M'
-        }, function (error) {
-            if (error) {
-                console.error('QR code generation error:', error);
-            } else {
-                canvas.style.display = 'block';
-            }
-        });
-    }
-
-    function downloadCanvasAsPNG(canvasId, filename) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    }
-
-    function decodeQRCodeFromFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const img = new Image();
-                img.onload = function () {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    try {
-                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const code = jsQR(imgData.data, canvas.width, canvas.height);
-                        if (code && code.data) {
-                            resolve(code.data);
-                        } else {
-                            reject(new Error("Could not find a valid QR Code in this image. Make sure the QR code is clearly visible."));
-                        }
-                    } catch (err) {
-                        reject(err);
-                    }
-                };
-                img.onerror = () => reject(new Error("Failed to load image file."));
-                img.src = e.target.result;
-            };
-            reader.onerror = () => reject(new Error("Failed to read file."));
-            reader.readAsDataURL(file);
-        });
     }
 
     const rtcConfig = {
@@ -2747,8 +2758,10 @@
             const compressed = await compressString(sdp);
             const offerToken = "SB_OFFER:" + compressed;
 
+            currentInviteToken = offerToken;
+
             document.getElementById('host-qr-spinner').style.display = 'none';
-            generateQRCode('host-qr-canvas', offerToken);
+            document.getElementById('host-preview-img').style.display = 'block';
             document.getElementById('host-download-btn').disabled = false;
             document.getElementById('raw-code-out').value = offerToken;
 
@@ -2798,7 +2811,7 @@
             await pc.setLocalDescription(answer);
 
             document.getElementById('guest-qr-spinner').style.display = 'flex';
-            document.getElementById('guest-qr-canvas').style.display = 'none';
+            document.getElementById('guest-preview-img').style.display = 'none';
             document.getElementById('guest-response-section').style.display = 'block';
 
             await new Promise((resolve) => {
@@ -2826,8 +2839,10 @@
             const compressedAnswer = await compressString(sdp);
             const answerToken = "SB_ANSWER:" + compressedAnswer;
 
+            currentAnswerToken = answerToken;
+
             document.getElementById('guest-qr-spinner').style.display = 'none';
-            generateQRCode('guest-qr-canvas', answerToken);
+            document.getElementById('guest-preview-img').style.display = 'block';
             document.getElementById('guest-download-btn').disabled = false;
             document.getElementById('raw-code-out').value = answerToken;
 
@@ -2924,20 +2939,24 @@
         document.getElementById('lobby-guest-screen').style.display = 'none';
         document.getElementById('lobby-text-fallback').style.display = 'none';
         
-        document.getElementById('host-qr-canvas').style.display = 'none';
-        document.getElementById('guest-qr-canvas').style.display = 'none';
+        document.getElementById('host-preview-img').style.display = 'none';
+        document.getElementById('guest-preview-img').style.display = 'none';
+        
         document.getElementById('host-qr-spinner').style.display = '';
         document.getElementById('host-qr-spinner-text').textContent = 'Generating WebRTC handshake...';
         document.getElementById('guest-qr-spinner').style.display = 'none';
         document.getElementById('guest-response-section').style.display = 'none';
         document.getElementById('host-download-btn').disabled = true;
         
-        document.getElementById('host-dropzone-text').textContent = 'Drop Answer PNG here or click to browse';
-        document.getElementById('guest-dropzone-text').textContent = 'Drop Invite PNG here or click to browse';
+        document.getElementById('host-dropzone-text').textContent = 'Drop Answer Beacon here or click to browse';
+        document.getElementById('guest-dropzone-text').textContent = 'Drop Invite Beacon here or click to browse';
         
         document.getElementById('raw-code-out').value = '';
         document.getElementById('raw-code-in').value = '';
         document.getElementById('text-inputs-container').style.display = 'none';
+
+        currentInviteToken = null;
+        currentAnswerToken = null;
     }
 
     function initLobbyEventListeners() {
@@ -2959,16 +2978,20 @@
         });
 
         document.getElementById('host-download-btn').addEventListener('click', () => {
-            downloadCanvasAsPNG('host-qr-canvas', 'StarBlazer_Invite.png');
+            if (currentInviteToken) {
+                downloadImageWithToken('invite_beacon.jpg', currentInviteToken, 'StarBlazer_Invite.jpg');
+            }
         });
 
         document.getElementById('guest-download-btn').addEventListener('click', () => {
-            downloadCanvasAsPNG('guest-qr-canvas', 'StarBlazer_Answer.png');
+            if (currentAnswerToken) {
+                downloadImageWithToken('answer_beacon.jpg', currentAnswerToken, 'StarBlazer_Answer.jpg');
+            }
         });
 
         setupDropzone('host-dropzone', 'host-file-input', 'host-dropzone-text', async (file) => {
             try {
-                const token = await decodeQRCodeFromFile(file);
+                const token = await decodeTokenFromImageFile(file);
                 await handleGuestAnswer(token);
             } catch (err) {
                 showToast(err.message);
@@ -2977,7 +3000,7 @@
 
         setupDropzone('guest-dropzone', 'guest-file-input', 'guest-dropzone-text', async (file) => {
             try {
-                const token = await decodeQRCodeFromFile(file);
+                const token = await decodeTokenFromImageFile(file);
                 await initGuestWebRTC(token);
             } catch (err) {
                 showToast(err.message);

@@ -7,9 +7,6 @@
     <meta name="description" content="A two-player hexagonal chip placement strategy game with royal tokens. Surround the opponent's royal to win.">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- QR Code & WebRTC Serverless Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body>
     <div class="ambient-glow ambient-glow--1"></div>
@@ -305,12 +302,12 @@
                         <button class="btn btn--primary btn--large" id="role-host-btn">
                             <span class="role-icon">📡</span>
                             <strong>Create Lobby (Host)</strong>
-                            <span class="role-sub">Generate invitation QR code</span>
+                            <span class="role-sub">Generate Invitation Beacon image</span>
                         </button>
                         <button class="btn btn--secondary btn--large" id="role-guest-btn">
                             <span class="role-icon">📥</span>
                             <strong>Join Lobby (Guest)</strong>
-                            <span class="role-sub">Upload invitation QR code</span>
+                            <span class="role-sub">Upload Invite Beacon image</span>
                         </button>
                     </div>
                 </div>
@@ -318,28 +315,28 @@
                 <!-- Host Screen -->
                 <div id="lobby-host-screen" class="lobby-section" style="display: none;">
                     <h3 class="section-title">1. Send Invite to Friend</h3>
-                    <p class="lobby-desc">Wait for the invite code to generate, then download the QR Code image and send it to your friend.</p>
+                    <p class="lobby-desc">Wait for the invite to generate, then download the Invite Beacon image and send it to your friend.</p>
                     
                     <div class="qr-container">
                         <div class="qr-spinner" id="host-qr-spinner">
                             <span class="lobby-spinner"></span>
-                            <p id="host-qr-spinner-text">Generating WebRTC handshake...</p>
+                            <p id="host-qr-spinner-text">Preparing Invitation Beacon...</p>
                         </div>
-                        <canvas id="host-qr-canvas" style="display: none;"></canvas>
+                        <img id="host-preview-img" src="invite_beacon.jpg" style="display: none; width: 200px; height: 200px; object-fit: cover; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);">
                     </div>
 
                     <div class="lobby-actions">
                         <button class="btn btn--primary" id="host-download-btn" disabled>
-                            📥 Download Invite PNG
+                            📥 Download Invite Beacon (PNG)
                         </button>
                     </div>
 
                     <h3 class="section-title mt-lg">2. Upload Friend's Response</h3>
-                    <p class="lobby-desc">Once your friend processes your invite, they will send you an "Answer" QR code. Upload it here to start the game.</p>
+                    <p class="lobby-desc">Once your friend processes your invite, they will send you an "Answer Beacon" image. Upload it here to start the game.</p>
                     
                     <div class="dropzone" id="host-dropzone">
                         <span class="dropzone-icon">📷</span>
-                        <p class="dropzone-text" id="host-dropzone-text">Drop Answer PNG here or click to browse</p>
+                        <p class="dropzone-text" id="host-dropzone-text">Drop Answer Beacon here or click to browse</p>
                         <input type="file" id="host-file-input" accept="image/png, image/jpeg" style="display: none;">
                     </div>
                 </div>
@@ -347,29 +344,29 @@
                 <!-- Guest Screen -->
                 <div id="lobby-guest-screen" class="lobby-section" style="display: none;">
                     <h3 class="section-title">1. Upload Friend's Invite</h3>
-                    <p class="lobby-desc">Select or drop the Invite QR Code PNG image that your friend sent you.</p>
+                    <p class="lobby-desc">Select or drop the Invite Beacon image that your friend sent you.</p>
                     
                     <div class="dropzone" id="guest-dropzone">
                         <span class="dropzone-icon">📷</span>
-                        <p class="dropzone-text" id="guest-dropzone-text">Drop Invite PNG here or click to browse</p>
+                        <p class="dropzone-text" id="guest-dropzone-text">Drop Invite Beacon here or click to browse</p>
                         <input type="file" id="guest-file-input" accept="image/png, image/jpeg" style="display: none;">
                     </div>
 
                     <div id="guest-response-section" style="display: none;">
                         <h3 class="section-title mt-lg">2. Send Answer Back</h3>
-                        <p class="lobby-desc">We successfully decoded the invite! Download this Answer QR Code and send it back to your friend to establish the connection.</p>
+                        <p class="lobby-desc">We successfully decoded the invite! Download this Answer Beacon image and send it back to your friend to establish the connection.</p>
                         
                         <div class="qr-container">
                             <div class="qr-spinner" id="guest-qr-spinner" style="display: none;">
                                 <span class="lobby-spinner"></span>
-                                <p>Generating WebRTC response...</p>
+                                <p>Preparing Answer Beacon...</p>
                             </div>
-                            <canvas id="guest-qr-canvas"></canvas>
+                            <img id="guest-preview-img" src="answer_beacon.jpg" style="display: none; width: 200px; height: 200px; object-fit: cover; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);">
                         </div>
 
                         <div class="lobby-actions">
                             <button class="btn btn--primary" id="guest-download-btn">
-                                📥 Download Answer PNG
+                                📥 Download Answer Beacon (PNG)
                             </button>
                         </div>
                         
