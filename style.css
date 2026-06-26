@@ -1530,12 +1530,17 @@ body:not(.light-theme) .theme-icon--moon {
         grid-column: 2;
         grid-row: 1;
         justify-self: end;
-        padding: 4px 6px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
         margin: 0;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-sm);
-        font-size: 1.1rem;
+        border-radius: 50%;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .player-type-btn:hover {
@@ -1583,6 +1588,12 @@ body:not(.light-theme) .theme-icon--moon {
 
     .player-name {
         font-size: 0.75rem;
+    }
+
+    .player-type-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
     }
 
     .board-frame {
