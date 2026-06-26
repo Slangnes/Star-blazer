@@ -2904,6 +2904,37 @@
         }
     }
 
+    function initPlayerNames() {
+        for (const p of [1, 2]) {
+            const el = document.querySelector(`#player${p}-card .player-name`);
+            if (!el) continue;
+
+            const handleNameSave = () => {
+                let name = el.textContent.trim();
+                if (!name) {
+                    name = `Player ${p}`;
+                    el.textContent = name;
+                }
+                if (state.playerNames[p] !== name) {
+                    state.playerNames[p] = name;
+                    // If online, send name update to peer
+                    if (state.onlineRole === p && state.conn && state.conn.open && !state.remoteActionInProgress) {
+                        sendNetworkMessage({ type: 'name_change', player: p, name });
+                    }
+                }
+            };
+
+            el.addEventListener('blur', handleNameSave);
+
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    el.blur();
+                }
+            });
+        }
+    }
+
     function decodeTokenFromImageFile(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -2995,7 +3026,8 @@
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
         ]
     };
 
@@ -3317,30 +3349,41 @@
     }
 
     function resetLobbyScreens() {
-        document.getElementById('host-initial-container').style.display = 'block';
-        document.getElementById('host-active-container').style.display = 'none';
+        const setDisplay = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = val;
+        };
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        const setValue = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        };
+
+        setDisplay('host-initial-container', 'block');
+        setDisplay('host-active-container', 'none');
+        setDisplay('guest-initial-container', 'block');
+        setDisplay('guest-active-container', 'none');
+        setDisplay('lobby-text-fallback', 'none');
         
-        document.getElementById('guest-initial-container').style.display = 'block';
-        document.getElementById('guest-active-container').style.display = 'none';
+        setDisplay('host-qr-spinner', 'flex');
+        setText('host-qr-spinner-text', 'Gathering network candidates...');
+        setDisplay('host-avatar-wrapper', 'none');
+        setDisplay('host-actions-row', 'none');
+        setDisplay('host-response-section', 'none');
         
-        document.getElementById('lobby-text-fallback').style.display = 'none';
+        setDisplay('guest-qr-spinner', 'flex');
+        setDisplay('guest-avatar-wrapper', 'none');
+        setDisplay('guest-actions-row', 'none');
         
-        document.getElementById('host-qr-spinner').style.display = 'flex';
-        document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
-        document.getElementById('host-avatar-wrapper').style.display = 'none';
-        document.getElementById('host-actions-row').style.display = 'none';
-        document.getElementById('host-response-section').style.display = 'none';
+        setText('host-dropzone-text', 'Drop Answer Beacon here or click to browse');
+        setText('guest-dropzone-text', 'Drop Invite Beacon here or click to browse');
         
-        document.getElementById('guest-qr-spinner').style.display = 'flex';
-        document.getElementById('guest-avatar-wrapper').style.display = 'none';
-        document.getElementById('guest-actions-row').style.display = 'none';
-        
-        document.getElementById('host-dropzone-text').textContent = 'Drop Answer Beacon here or click to browse';
-        document.getElementById('guest-dropzone-text').textContent = 'Drop Invite Beacon here or click to browse';
-        
-        document.getElementById('raw-code-out').value = '';
-        document.getElementById('raw-code-in').value = '';
-        document.getElementById('text-inputs-container').style.display = 'none';
+        setValue('raw-code-out', '');
+        setValue('raw-code-in', '');
+        setDisplay('text-inputs-container', 'none');
 
         currentInviteToken = null;
         currentAnswerToken = null;
