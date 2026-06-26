@@ -3431,7 +3431,6 @@
             currentInviteToken = offerToken;
 
             // Render spaceship avatar
-            const canvas = document.getElementById('host-avatar-canvas');
             if (canvas) {
                 drawSpaceBeaconAvatar(canvas, 1, state.playerColors[1], state.lobbyId);
                 generateDownloadBlob(canvas, offerToken, (blob) => {
@@ -3570,7 +3569,6 @@
             currentAnswerToken = answerToken;
 
             // Render Guest spaceship avatar
-            const canvas = document.getElementById('guest-avatar-canvas');
             if (canvas) {
                 drawSpaceBeaconAvatar(canvas, 2, state.playerColors[2], state.lobbyId);
                 generateDownloadBlob(canvas, answerToken, (blob) => {
@@ -3583,7 +3581,6 @@
             document.getElementById('guest-actions-row').style.display = 'flex';
             document.getElementById('raw-code-out').value = answerToken;
 
-            const guestStatus = document.getElementById('guest-status-text');
             if (guestStatus) {
                 guestStatus.style.display = 'block';
             }
