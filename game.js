@@ -3368,7 +3368,7 @@
             document.getElementById('host-avatar-wrapper').style.display = 'block';
             
             document.getElementById('host-actions-row').style.display = 'none';
-            document.getElementById('host-response-section').style.display = 'none';
+            document.getElementById('host-response-section').style.display = 'block';
 
             const pc = new RTCPeerConnection(rtcConfig);
             state.pc = pc;
