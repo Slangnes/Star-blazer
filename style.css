@@ -2253,6 +2253,7 @@ body.theme-alabaster .help-piece-item {
     font-weight: 600;
     opacity: 0;
     transition: opacity var(--transition-fast) ease;
+    pointer-events: none;
 }
 
 .avatar-preview-wrapper:hover::after {

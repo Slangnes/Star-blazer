@@ -2393,20 +2393,22 @@
         updateProgressionUI();
 
         // Copy canvas on click
-        const hostCanvas = document.getElementById('host-avatar-canvas');
-        if (hostCanvas) {
-            hostCanvas.addEventListener('click', (e) => {
+        const hostWrapper = document.getElementById('host-avatar-wrapper');
+        if (hostWrapper) {
+            hostWrapper.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (currentInviteToken) {
+                const hostCanvas = document.getElementById('host-avatar-canvas');
+                if (hostCanvas && currentInviteToken) {
                     copyCanvasToClipboard(hostCanvas, currentInviteToken);
                 }
             });
         }
-        const guestCanvas = document.getElementById('guest-avatar-canvas');
-        if (guestCanvas) {
-            guestCanvas.addEventListener('click', (e) => {
+        const guestWrapper = document.getElementById('guest-avatar-wrapper');
+        if (guestWrapper) {
+            guestWrapper.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (currentAnswerToken) {
+                const guestCanvas = document.getElementById('guest-avatar-canvas');
+                if (guestCanvas && currentAnswerToken) {
                     copyCanvasToClipboard(guestCanvas, currentAnswerToken);
                 }
             });
