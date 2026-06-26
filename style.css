@@ -471,6 +471,7 @@ body {
     transition: all var(--transition-fast);
     outline: none;
     margin-top: 2px;
+    position: relative;
 }
 
 body.theme-alabaster .player-type-btn {
