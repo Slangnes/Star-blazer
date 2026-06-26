@@ -67,11 +67,9 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 New Game
             </button>
-        </div>
-
-        <div class="game-layout">
-            <!-- Player 1 Panel -->
-            <aside class="player-panel" id="panel-p1">
+        </div>        <div class="game-layout">
+            <div class="player-panels-container">
+                <!-- Player 1 Card -->
                 <div class="player-card active" id="player1-card">
                     <div class="player-indicator" id="player1-indicator"></div>
                     <div class="player-chip-wrapper" id="player1-chip-wrapper">
@@ -98,84 +96,8 @@
                     </button>
                     <div class="turn-badge" id="player1-badge">Your Turn</div>
                 </div>
-                <div class="player-drawer" id="drawer-p1">
-                    <div class="drawer-section">
-                        <span class="drawer-section-title">Placing & Movement</span>
-                        <div class="drawer-actions">
-                            <!-- Royal -->
-                            <div class="drawer-piece-row" data-piece="royal">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--royal">♛</div>
-                                    <div class="piece-count-badge" id="p1-royal-required-badge" style="display:none;">!</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Royal</span>
-                                    <span class="piece-desc">Moves 1 space</span>
-                                </div>
-                            </div>
-                            <!-- Soldier -->
-                            <div class="drawer-piece-row" data-piece="soldier">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--soldier">🛡</div>
-                                    <div class="piece-count-badge" id="p1-soldier-count">3</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Soldier</span>
-                                    <span class="piece-desc">Slides perimeter</span>
-                                </div>
-                            </div>
-                            <!-- Corvette -->
-                            <div class="drawer-piece-row" data-piece="corvette">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--corvette">⎈</div>
-                                    <div class="piece-count-badge" id="p1-corvette-count">2</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Corvette</span>
-                                    <span class="piece-desc">Crawls / stacks</span>
-                                </div>
-                            </div>
-                            <!-- Hopper -->
-                            <div class="drawer-piece-row" data-piece="hopper">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--hopper">⬦</div>
-                                    <div class="piece-count-badge" id="p1-hopper-count">3</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Hopper</span>
-                                    <span class="piece-desc">Jumps straight</span>
-                                </div>
-                            </div>
-                            <!-- General -->
-                            <div class="drawer-piece-row" data-piece="general">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--general">★</div>
-                                    <div class="piece-count-badge" id="p1-general-count">2</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">General</span>
-                                    <span class="piece-desc">Slides max 3</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </aside>
 
-            <!-- Game Board -->
-            <main class="board-wrapper">
-                <div class="board-frame">
-                    <svg id="game-board" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
-                </div>
-
-                <div class="status-bar">
-                    <div class="status-dot" id="status-dot"></div>
-                    <p class="status-text" id="game-status">Player 1's turn — place at the center cell</p>
-                </div>
-            </main>
-
-            <!-- Player 2 Panel -->
-            <aside class="player-panel" id="panel-p2">
+                <!-- Player 2 Card -->
                 <div class="player-card" id="player2-card">
                     <div class="player-indicator" id="player2-indicator"></div>
                     <div class="player-chip-wrapper" id="player2-chip-wrapper">
@@ -202,71 +124,57 @@
                     </button>
                     <div class="turn-badge" id="player2-badge">Your Turn</div>
                 </div>
-                <div class="player-drawer" id="drawer-p2">
-                    <div class="drawer-section">
-                        <span class="drawer-section-title">Placing & Movement</span>
-                        <div class="drawer-actions">
-                            <!-- Royal -->
-                            <div class="drawer-piece-row" data-piece="royal">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--royal">♛</div>
-                                    <div class="piece-count-badge" id="p2-royal-required-badge" style="display:none;">!</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Royal</span>
-                                    <span class="piece-desc">Moves 1 space</span>
-                                </div>
-                            </div>
-                            <!-- Soldier -->
-                            <div class="drawer-piece-row" data-piece="soldier">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--soldier">🛡</div>
-                                    <div class="piece-count-badge" id="p2-soldier-count">3</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Soldier</span>
-                                    <span class="piece-desc">Slides perimeter</span>
-                                </div>
-                            </div>
-                            <!-- Corvette -->
-                            <div class="drawer-piece-row" data-piece="corvette">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--corvette">⎈</div>
-                                    <div class="piece-count-badge" id="p2-corvette-count">2</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Corvette</span>
-                                    <span class="piece-desc">Crawls / stacks</span>
-                                </div>
-                            </div>
-                            <!-- Hopper -->
-                            <div class="drawer-piece-row" data-piece="hopper">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--hopper">⬦</div>
-                                    <div class="piece-count-badge" id="p2-hopper-count">3</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">Hopper</span>
-                                    <span class="piece-desc">Jumps straight</span>
-                                </div>
-                            </div>
-                            <!-- General -->
-                            <div class="drawer-piece-row" data-piece="general">
-                                <div class="piece-badge-container">
-                                    <div class="piece-badge piece-badge--general">★</div>
-                                    <div class="piece-count-badge" id="p2-general-count">2</div>
-                                </div>
-                                <div class="piece-info">
-                                    <span class="piece-name">General</span>
-                                    <span class="piece-desc">Slides max 3</span>
-                                </div>
-                            </div>
-                        </div>
+            </div>
+
+            <div class="game-main-area" id="game-main-area">
+                <!-- Game Board -->
+                <main class="board-wrapper">
+                    <div class="board-frame">
+                        <svg id="game-board" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
                     </div>
+
+                    <div class="status-bar">
+                        <div class="status-dot" id="status-dot"></div>
+                        <p class="status-text" id="game-status">Player 1's turn — place at the center cell</p>
+                    </div>
+                </main>
+
+                <!-- Action Toolbar (Piece Bank) -->
+                <div class="action-toolbar" id="action-toolbar">
+                    <!-- Royal Button -->
+                    <button class="toolbar-btn" id="btn-piece-royal" data-piece="royal" data-tooltip="Royal — Moves 1 space">
+                        <span class="toolbar-btn-icon">♛</span>
+                        <span class="toolbar-btn-badge" id="count-badge-royal-forced" style="display: none;">!</span>
+                    </button>
+                    <!-- Soldier Button -->
+                    <button class="toolbar-btn" id="btn-piece-soldier" data-piece="soldier" data-tooltip="Soldier — Slides perimeter">
+                        <span class="toolbar-btn-icon">🛡</span>
+                        <span class="toolbar-btn-badge" id="count-badge-soldier">3</span>
+                    </button>
+                    <!-- Corvette Button -->
+                    <button class="toolbar-btn" id="btn-piece-corvette" data-piece="corvette" data-tooltip="Corvette — Crawls / stacks">
+                        <span class="toolbar-btn-icon">⎈</span>
+                        <span class="toolbar-btn-badge" id="count-badge-corvette">2</span>
+                    </button>
+                    <!-- Hopper Button -->
+                    <button class="toolbar-btn" id="btn-piece-hopper" data-piece="hopper" data-tooltip="Hopper — Jumps straight">
+                        <span class="toolbar-btn-icon">⬦</span>
+                        <span class="toolbar-btn-badge" id="count-badge-hopper">3</span>
+                    </button>
+                    <!-- General Button -->
+                    <button class="toolbar-btn" id="btn-piece-general" data-piece="general" data-tooltip="General — Slides max 3">
+                        <span class="toolbar-btn-icon">★</span>
+                        <span class="toolbar-btn-badge" id="count-badge-general">2</span>
+                    </button>
+
+                    <!-- Handedness Toggle Button -->
+                    <button class="toolbar-btn toolbar-btn--control" id="hand-toggle-btn" data-tooltip="Toggle Layout Side (Left/Right)">
+                        <span class="toolbar-btn-icon">⇆</span>
+                    </button>
                 </div>
-            </aside>
+            </div>
         </div> <!-- Close game-layout -->
-    </div>
+    </div> <!-- Close app -->
 
     <!-- Multiplayer Lobby Modal -->
     <div class="modal-overlay" id="lobby-modal" style="display: none;">
