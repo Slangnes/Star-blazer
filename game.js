@@ -25,6 +25,9 @@
         totalPieces: 0,                     // pieces currently on board (total stack size sum)
         moveHistory: [],                    // for undo
         playerColors: { 1: '#1a1a1a', 2: '#d4b896' },
+        playerNames: { 1: 'Player 1', 2: 'Player 2' },
+        playerAvatars: { 1: null, 2: null },
+        lobbyId: null,
         playerCounts: { 1: 0, 2: 0 },
 
         // Royal
@@ -772,7 +775,11 @@
         if (occupant !== undefined) {
             const color = state.playerColors[occupant];
             cell.chip.style.display = '';
-            cell.chip.style.fill = color;
+            if (state.playerAvatars[occupant]) {
+                cell.chip.style.fill = `url(#player${occupant}-avatar-pattern)`;
+            } else {
+                cell.chip.style.fill = color;
+            }
 
             if (type === 'royal') {
                 cell.chip.style.stroke = '#f59e0b';
@@ -1907,6 +1914,10 @@
             renderCell(cq, cr);
         });
 
+        if (typeof updateLobbyImageWithColor === 'function') {
+            updateLobbyImageWithColor(player, color);
+        }
+
         refreshUI();
     }
 
@@ -2328,6 +2339,9 @@
             initColorPickerFan(p);
         }
 
+        initLobbyEventListeners();
+        initPlayerNames();
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'z') {
@@ -2580,33 +2594,313 @@
     let reconnectTimeout = null;
     let currentInviteToken = null;
     let currentAnswerToken = null;
+    let hostInviteBlob = null;
+    let guestAnswerBlob = null;
 
     const SEPARATOR_STR = "__STARBLAZER_DATA__";
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    async function downloadImageWithToken(baseImageUrl, token, filename) {
-        try {
-            const response = await fetch(baseImageUrl);
-            const imageBuffer = await response.arrayBuffer();
-            const imageBytes = new Uint8Array(imageBuffer);
+    function generateLobbyId() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let res = '';
+        for (let i = 0; i < 8; i++) {
+            res += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return res;
+    }
 
-            const tokenWithSeparator = SEPARATOR_STR + token;
-            const tokenBytes = encoder.encode(tokenWithSeparator);
+    function createSeededRandom(seedString) {
+        let hash = 0;
+        for (let i = 0; i < seedString.length; i++) {
+            hash = seedString.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return function() {
+            let x = Math.sin(hash++) * 10000;
+            return x - Math.floor(x);
+        };
+    }
 
-            const combinedBytes = new Uint8Array(imageBytes.length + tokenBytes.length);
-            combinedBytes.set(imageBytes, 0);
-            combinedBytes.set(tokenBytes, imageBytes.length);
+    function drawSpaceBeaconAvatar(canvas, role, primaryColor, lobbyId) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        
+        // 1. Draw space background
+        const grad = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, w*0.7);
+        grad.addColorStop(0, '#100a26');
+        grad.addColorStop(1, '#05030f');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+        
+        // 2. Draw stars (deterministic based on lobbyId)
+        const seed = lobbyId || "starblazer";
+        const random = createSeededRandom(seed);
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 40; i++) {
+            const sx = random() * w;
+            const sy = random() * h;
+            const size = random() * 2 + 0.5;
+            const alpha = random() * 0.7 + 0.3;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.arc(sx, sy, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+        
+        // 3. Draw radar grid/circles
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(w/2, h/2, w*0.35, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(w/2, h/2, w*0.2, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Crosshairs
+        ctx.beginPath();
+        ctx.moveTo(w/2 - w*0.4, h/2); ctx.lineTo(w/2 + w*0.4, h/2);
+        ctx.moveTo(w/2, h/2 - h*0.4); ctx.lineTo(w/2, h/2 + h*0.4);
+        ctx.stroke();
+        
+        // 4. Draw Transmission Waves / Telemetry Rings
+        const waveColor = role === 1 ? 'rgba(56, 189, 248, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+        ctx.strokeStyle = waveColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        
+        const time = Date.now();
+        const rippleOffset = (time % 1000) / 1000;
+        
+        if (role === 1) { // Host: Ripples emitting from nose (pointing up)
+            const noseY = h/2 - 50;
+            for (let r = 15; r < 60; r += 15) {
+                ctx.beginPath();
+                ctx.arc(w/2, noseY, r, Math.PI * 1.2, Math.PI * 1.8);
+                ctx.stroke();
+            }
+        } else { // Guest: Ripples converging to nose (pointing down)
+            const noseY = h/2 + 50;
+            for (let r = 15; r < 60; r += 15) {
+                ctx.beginPath();
+                ctx.arc(w/2, noseY, r, Math.PI * 0.2, Math.PI * 0.8);
+                ctx.stroke();
+            }
+        }
+        ctx.setLineDash([]); // Reset dash
+        
+        // 5. Draw Spaceship
+        ctx.save();
+        ctx.translate(w/2, h/2);
+        if (role === 2) {
+            ctx.rotate(Math.PI); // Rotate 180 deg for Guest (pointing down)
+        }
+        
+        // Wings
+        ctx.fillStyle = primaryColor;
+        ctx.beginPath();
+        ctx.moveTo(0, -50);          // Nose
+        ctx.lineTo(-40, 20);         // Left wing tip
+        ctx.lineTo(-15, 30);         // Left wing join
+        ctx.lineTo(15, 30);          // Right wing join
+        ctx.lineTo(40, 20);          // Right wing tip
+        ctx.closePath();
+        ctx.fill();
+        
+        // Main Fuselage
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.moveTo(0, -55);
+        ctx.lineTo(-12, 10);
+        ctx.lineTo(-10, 40);
+        ctx.lineTo(10, 40);
+        ctx.lineTo(12, 10);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Wing trim
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(-30, 15);
+        ctx.lineTo(-15, 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(30, 15);
+        ctx.lineTo(15, 20);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Cockpit canopy
+        const cockGrad = ctx.createLinearGradient(0, -35, 0, -5);
+        cockGrad.addColorStop(0, '#06b6d4');
+        cockGrad.addColorStop(1, '#0891b2');
+        ctx.fillStyle = cockGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, -35);
+        ctx.lineTo(-6, -10);
+        ctx.lineTo(-4, 0);
+        ctx.lineTo(4, 0);
+        ctx.lineTo(6, -10);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Engines & Fire
+        ctx.fillStyle = role === 1 ? '#00d2ff' : '#ff4e00';
+        // Left thruster flame
+        ctx.beginPath();
+        ctx.moveTo(-15, 30);
+        ctx.lineTo(-18, 50);
+        ctx.lineTo(-12, 35);
+        ctx.closePath();
+        ctx.fill();
+        // Right thruster flame
+        ctx.beginPath();
+        ctx.moveTo(15, 30);
+        ctx.lineTo(18, 50);
+        ctx.lineTo(12, 35);
+        ctx.closePath();
+        ctx.fill();
+        // Center main engine flame
+        ctx.beginPath();
+        ctx.moveTo(-5, 40);
+        ctx.lineTo(0, 65);
+        ctx.lineTo(5, 40);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // 6. Draw HUD frame and text
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(10, 10, w - 20, h - 20);
+        
+        // Frame brackets
+        ctx.strokeStyle = '#8b5cf6';
+        ctx.lineWidth = 5;
+        const len = 20;
+        ctx.beginPath(); ctx.moveTo(10, 10 + len); ctx.lineTo(10, 10); ctx.lineTo(10 + len, 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w - 10 - len, 10); ctx.lineTo(w - 10, 10); ctx.lineTo(w - 10, 10 + len); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(10, h - 10 - len); ctx.lineTo(10, h - 10); ctx.lineTo(10 + len, h - 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w - 10 - len, h - 10); ctx.lineTo(w - 10, h - 10); ctx.lineTo(w - 10, h - 10 - len); ctx.stroke();
+        
+        ctx.fillStyle = '#a78bfa';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(role === 1 ? 'TRANSMITTING INVITE SIGNAL' : 'TRANSMITTING ANSWER SIGNAL', w/2, 25);
+        
+        ctx.fillStyle = '#a78bfa';
+        ctx.fillText(`LOBBY: ${lobbyId}`, w/2, h - 20);
+    }
 
-            const blob = new Blob([combinedBytes], { type: 'image/jpeg' });
-            const link = document.createElement('a');
-            link.download = filename;
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            URL.revokeObjectURL(link.href);
-        } catch (err) {
-            console.error("Error creating download image:", err);
-            showToast("Failed to generate image file: " + err.message);
+    window.updateLobbyImageWithColor = function(player, color) {
+        if (player === 1 && state.onlineRole === 1 && currentInviteToken) {
+            const canvas = document.getElementById('host-avatar-canvas');
+            if (canvas) {
+                drawSpaceBeaconAvatar(canvas, 1, color, state.lobbyId);
+                generateDownloadBlob(canvas, currentInviteToken, (blob) => {
+                    hostInviteBlob = blob;
+                });
+            }
+        } else if (player === 2 && state.onlineRole === 2 && currentAnswerToken) {
+            const canvas = document.getElementById('guest-avatar-canvas');
+            if (canvas) {
+                drawSpaceBeaconAvatar(canvas, 2, color, state.lobbyId);
+                generateDownloadBlob(canvas, currentAnswerToken, (blob) => {
+                    guestAnswerBlob = blob;
+                });
+            }
+        }
+    };
+
+    function generateDownloadBlob(canvas, token, callback) {
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            try {
+                const imageBuffer = await blob.arrayBuffer();
+                const imageBytes = new Uint8Array(imageBuffer);
+                const tokenWithSeparator = SEPARATOR_STR + token;
+                const tokenBytes = encoder.encode(tokenWithSeparator);
+                
+                const combinedBytes = new Uint8Array(imageBytes.length + tokenBytes.length);
+                combinedBytes.set(imageBytes, 0);
+                combinedBytes.set(tokenBytes, imageBytes.length);
+                
+                const combinedBlob = new Blob([combinedBytes], { type: 'image/jpeg' });
+                callback(combinedBlob);
+            } catch (err) {
+                console.error("Error creating combined blob:", err);
+            }
+        }, 'image/jpeg', 0.85);
+    }
+
+    function setPlayerAvatar(player, dataUrl) {
+        state.playerAvatars[player] = dataUrl;
+
+        const chipEl = document.getElementById(`player${player}-chip`);
+        if (chipEl) {
+            if (dataUrl) {
+                chipEl.style.backgroundImage = `url(${dataUrl})`;
+                chipEl.style.backgroundSize = 'cover';
+                chipEl.style.backgroundColor = 'transparent';
+                chipEl.style.border = '2px solid var(--accent)';
+            } else {
+                chipEl.style.backgroundImage = '';
+                chipEl.style.backgroundColor = state.playerColors[player];
+                chipEl.style.border = '';
+            }
+        }
+
+        const defs = svgEl.querySelector('defs');
+        if (defs) {
+            const patternId = `player${player}-avatar-pattern`;
+            let pattern = document.getElementById(patternId);
+            if (dataUrl) {
+                if (!pattern) {
+                    pattern = document.createElementNS(CONFIG.SVG_NS, 'pattern');
+                    pattern.setAttribute('id', patternId);
+                    pattern.setAttribute('patternUnits', 'objectBoundingBox');
+                    pattern.setAttribute('width', '1');
+                    pattern.setAttribute('height', '1');
+                    
+                    const img = document.createElementNS(CONFIG.SVG_NS, 'image');
+                    img.setAttribute('x', '0');
+                    img.setAttribute('y', '0');
+                    img.setAttribute('width', '100%');
+                    img.setAttribute('height', '100%');
+                    img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+                    pattern.appendChild(img);
+                    defs.appendChild(pattern);
+                }
+                const img = pattern.querySelector('image');
+                if (img) {
+                    img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', dataUrl);
+                }
+            } else if (pattern) {
+                pattern.remove();
+            }
+        }
+
+        state.board.forEach((stack, key) => {
+            const [cq, cr] = key.split(',').map(Number);
+            renderCell(cq, cr);
+        });
+
+        if (state.onlineRole === player && state.conn && state.conn.open && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'avatar', player, avatar: dataUrl });
+        }
+    }
+
+    function updatePlayerName(player, name) {
+        state.playerNames[player] = name;
+        const el = document.querySelector(`#player${player}-card .player-name`);
+        if (el) {
+            el.textContent = name;
         }
     }
 
@@ -2619,7 +2913,8 @@
                     const separatorBytes = encoder.encode(SEPARATOR_STR);
                     let foundIndex = -1;
                     
-                    for (let i = bytes.length - separatorBytes.length; i >= 0; i--) {
+                    const searchStart = Math.max(0, bytes.length - 131072); // search last 128KB only
+                    for (let i = bytes.length - separatorBytes.length; i >= searchStart; i--) {
                         let match = true;
                         for (let j = 0; j < separatorBytes.length; j++) {
                             if (bytes[i + j] !== separatorBytes[j]) {
@@ -2707,10 +3002,20 @@
     async function initHostWebRTC() {
         try {
             state.onlineRole = 1;
+            state.lobbyId = generateLobbyId();
             
             cleanupWebRTC();
 
-            console.log("Initializing Host WebRTC...");
+            console.log("Initializing Host WebRTC (Lobby ID:", state.lobbyId, ")...");
+            
+            document.getElementById('host-initial-container').style.display = 'none';
+            document.getElementById('host-active-container').style.display = 'block';
+            document.getElementById('host-qr-spinner').style.display = 'flex';
+            document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
+            document.getElementById('host-avatar-wrapper').style.display = 'none';
+            document.getElementById('host-actions-row').style.display = 'none';
+            document.getElementById('host-response-section').style.display = 'none';
+
             const pc = new RTCPeerConnection(rtcConfig);
             state.pc = pc;
 
@@ -2732,37 +3037,64 @@
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
+            // Wait for ICE candidates with a 3.5-second timeout to prevent freezes
             await new Promise((resolve) => {
-                if (pc.iceGatheringState === 'complete') {
+                let resolved = false;
+                const done = () => {
+                    if (resolved) return;
+                    resolved = true;
+                    pc.removeEventListener('icegatheringstatechange', checkState);
+                    pc.removeEventListener('icecandidate', checkCandidate);
+                    clearTimeout(timeoutId);
                     resolve();
+                };
+                
+                const timeoutId = setTimeout(done, 3500);
+                
+                const checkState = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        done();
+                    }
+                };
+                const checkCandidate = (e) => {
+                    if (!e.candidate) {
+                        done();
+                    }
+                };
+                
+                if (pc.iceGatheringState === 'complete') {
+                    done();
                 } else {
-                    const checkState = () => {
-                        if (pc.iceGatheringState === 'complete') {
-                            pc.removeEventListener('icecandidate', checkCandidate);
-                            resolve();
-                        }
-                    };
-                    const checkCandidate = (e) => {
-                        if (!e.candidate) {
-                            pc.removeEventListener('icecandidate', checkCandidate);
-                            resolve();
-                        }
-                    };
                     pc.addEventListener('icegatheringstatechange', checkState);
                     pc.addEventListener('icecandidate', checkCandidate);
                 }
             });
 
-            const sdp = pc.localDescription.sdp;
-            const compressed = await compressString(sdp);
+            // Package metadata into the compressed token
+            const offerMetadata = {
+                sdp: pc.localDescription.sdp,
+                color: state.playerColors[1],
+                name: state.playerNames[1],
+                lobbyId: state.lobbyId
+            };
+            const compressed = await compressString(JSON.stringify(offerMetadata));
             const offerToken = "SB_OFFER:" + compressed;
 
             currentInviteToken = offerToken;
 
+            // Render spaceship avatar
+            const canvas = document.getElementById('host-avatar-canvas');
+            if (canvas) {
+                drawSpaceBeaconAvatar(canvas, 1, state.playerColors[1], state.lobbyId);
+                generateDownloadBlob(canvas, offerToken, (blob) => {
+                    hostInviteBlob = blob;
+                });
+            }
+
             document.getElementById('host-qr-spinner').style.display = 'none';
-            document.getElementById('host-preview-img').style.display = 'block';
-            document.getElementById('host-download-btn').disabled = false;
+            document.getElementById('host-avatar-wrapper').style.display = 'block';
+            document.getElementById('host-actions-row').style.display = 'flex';
+            document.getElementById('host-response-section').style.display = 'block';
             document.getElementById('raw-code-out').value = offerToken;
 
         } catch (err) {
@@ -2780,12 +3112,31 @@
                 throw new Error("Invalid connection code. Make sure it is an Invite code.");
             }
 
+            // Decompress and parse Host offer metadata
             const compressed = offerToken.replace("SB_OFFER:", "").trim();
-            const offerSdp = await decompressString(compressed);
+            const decodedJSON = await decompressString(compressed);
+            let offerMetadata;
+            try {
+                offerMetadata = JSON.parse(decodedJSON);
+            } catch (e) {
+                offerMetadata = { sdp: decodedJSON, color: state.playerColors[1], name: 'Host Player', lobbyId: 'SB-GUEST' };
+            }
+
+            state.lobbyId = offerMetadata.lobbyId || 'SB-LOBBY';
+            updatePlayerColor(1, offerMetadata.color || '#1a1a1a');
+            updateSwatchUI(1, offerMetadata.color || '#1a1a1a');
+            updatePlayerName(1, offerMetadata.name || 'Player 1');
 
             cleanupWebRTC();
 
-            console.log("Initializing Guest WebRTC...");
+            console.log("Initializing Guest WebRTC for Lobby ID:", state.lobbyId);
+            
+            document.getElementById('guest-initial-container').style.display = 'none';
+            document.getElementById('guest-active-container').style.display = 'block';
+            document.getElementById('guest-qr-spinner').style.display = 'flex';
+            document.getElementById('guest-avatar-wrapper').style.display = 'none';
+            document.getElementById('guest-actions-row').style.display = 'none';
+
             const pc = new RTCPeerConnection(rtcConfig);
             state.pc = pc;
 
@@ -2805,45 +3156,67 @@
                 }
             };
 
-            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerSdp }));
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerMetadata.sdp }));
 
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
-            document.getElementById('guest-qr-spinner').style.display = 'flex';
-            document.getElementById('guest-preview-img').style.display = 'none';
-            document.getElementById('guest-response-section').style.display = 'block';
-
+            // Wait for ICE candidates with a 3.5-second timeout to prevent freezes
             await new Promise((resolve) => {
-                if (pc.iceGatheringState === 'complete') {
+                let resolved = false;
+                const done = () => {
+                    if (resolved) return;
+                    resolved = true;
+                    pc.removeEventListener('icegatheringstatechange', checkState);
+                    pc.removeEventListener('icecandidate', checkCandidate);
+                    clearTimeout(timeoutId);
                     resolve();
+                };
+                
+                const timeoutId = setTimeout(done, 3500);
+                
+                const checkState = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        done();
+                    }
+                };
+                const checkCandidate = (e) => {
+                    if (!e.candidate) {
+                        done();
+                    }
+                };
+                
+                if (pc.iceGatheringState === 'complete') {
+                    done();
                 } else {
-                    const checkState = () => {
-                        if (pc.iceGatheringState === 'complete') {
-                            pc.removeEventListener('icecandidate', checkCandidate);
-                            resolve();
-                        }
-                    };
-                    const checkCandidate = (e) => {
-                        if (!e.candidate) {
-                            pc.removeEventListener('icecandidate', checkCandidate);
-                            resolve();
-                        }
-                    };
                     pc.addEventListener('icegatheringstatechange', checkState);
                     pc.addEventListener('icecandidate', checkCandidate);
                 }
             });
 
-            const sdp = pc.localDescription.sdp;
-            const compressedAnswer = await compressString(sdp);
+            // Package Guest metadata
+            const answerMetadata = {
+                sdp: pc.localDescription.sdp,
+                color: state.playerColors[2],
+                name: state.playerNames[2]
+            };
+            const compressedAnswer = await compressString(JSON.stringify(answerMetadata));
             const answerToken = "SB_ANSWER:" + compressedAnswer;
 
             currentAnswerToken = answerToken;
 
+            // Render Guest spaceship avatar
+            const canvas = document.getElementById('guest-avatar-canvas');
+            if (canvas) {
+                drawSpaceBeaconAvatar(canvas, 2, state.playerColors[2], state.lobbyId);
+                generateDownloadBlob(canvas, answerToken, (blob) => {
+                    guestAnswerBlob = blob;
+                });
+            }
+
             document.getElementById('guest-qr-spinner').style.display = 'none';
-            document.getElementById('guest-preview-img').style.display = 'block';
-            document.getElementById('guest-download-btn').disabled = false;
+            document.getElementById('guest-avatar-wrapper').style.display = 'block';
+            document.getElementById('guest-actions-row').style.display = 'flex';
             document.getElementById('raw-code-out').value = answerToken;
 
         } catch (err) {
@@ -2863,10 +3236,20 @@
             }
 
             const compressed = answerToken.replace("SB_ANSWER:", "").trim();
-            const answerSdp = await decompressString(compressed);
+            const decodedJSON = await decompressString(compressed);
+            let answerMetadata;
+            try {
+                answerMetadata = JSON.parse(decodedJSON);
+            } catch (e) {
+                answerMetadata = { sdp: decodedJSON, color: state.playerColors[2], name: 'Guest Player' };
+            }
+
+            updatePlayerColor(2, answerMetadata.color || '#d4b896');
+            updateSwatchUI(2, answerMetadata.color || '#d4b896');
+            updatePlayerName(2, answerMetadata.name || 'Player 2');
 
             console.log("Setting remote description (Guest Answer)...");
-            await state.pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSdp }));
+            await state.pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerMetadata.sdp }));
             
             showToast("Connecting to peer...");
         } catch (err) {
@@ -2934,19 +3317,23 @@
     }
 
     function resetLobbyScreens() {
-        document.getElementById('lobby-role-selection').style.display = '';
-        document.getElementById('lobby-host-screen').style.display = 'none';
-        document.getElementById('lobby-guest-screen').style.display = 'none';
+        document.getElementById('host-initial-container').style.display = 'block';
+        document.getElementById('host-active-container').style.display = 'none';
+        
+        document.getElementById('guest-initial-container').style.display = 'block';
+        document.getElementById('guest-active-container').style.display = 'none';
+        
         document.getElementById('lobby-text-fallback').style.display = 'none';
         
-        document.getElementById('host-preview-img').style.display = 'none';
-        document.getElementById('guest-preview-img').style.display = 'none';
+        document.getElementById('host-qr-spinner').style.display = 'flex';
+        document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
+        document.getElementById('host-avatar-wrapper').style.display = 'none';
+        document.getElementById('host-actions-row').style.display = 'none';
+        document.getElementById('host-response-section').style.display = 'none';
         
-        document.getElementById('host-qr-spinner').style.display = '';
-        document.getElementById('host-qr-spinner-text').textContent = 'Generating WebRTC handshake...';
-        document.getElementById('guest-qr-spinner').style.display = 'none';
-        document.getElementById('guest-response-section').style.display = 'none';
-        document.getElementById('host-download-btn').disabled = true;
+        document.getElementById('guest-qr-spinner').style.display = 'flex';
+        document.getElementById('guest-avatar-wrapper').style.display = 'none';
+        document.getElementById('guest-actions-row').style.display = 'none';
         
         document.getElementById('host-dropzone-text').textContent = 'Drop Answer Beacon here or click to browse';
         document.getElementById('guest-dropzone-text').textContent = 'Drop Invite Beacon here or click to browse';
@@ -2957,20 +3344,13 @@
 
         currentInviteToken = null;
         currentAnswerToken = null;
+        hostInviteBlob = null;
+        guestAnswerBlob = null;
     }
 
     function initLobbyEventListeners() {
         document.getElementById('role-host-btn').addEventListener('click', () => {
-            document.getElementById('lobby-role-selection').style.display = 'none';
-            document.getElementById('lobby-host-screen').style.display = '';
-            document.getElementById('lobby-text-fallback').style.display = '';
             initHostWebRTC();
-        });
-
-        document.getElementById('role-guest-btn').addEventListener('click', () => {
-            document.getElementById('lobby-role-selection').style.display = 'none';
-            document.getElementById('lobby-guest-screen').style.display = '';
-            document.getElementById('lobby-text-fallback').style.display = '';
         });
 
         document.getElementById('lobby-close-btn').addEventListener('click', () => {
@@ -2978,14 +3358,40 @@
         });
 
         document.getElementById('host-download-btn').addEventListener('click', () => {
-            if (currentInviteToken) {
-                downloadImageWithToken('invite_beacon.jpg', currentInviteToken, 'StarBlazer_Invite.jpg');
+            if (hostInviteBlob) {
+                const link = document.createElement('a');
+                link.download = `StarBlazer_Invite_${state.lobbyId || 'Lobby'}.jpg`;
+                link.href = URL.createObjectURL(hostInviteBlob);
+                link.click();
+                URL.revokeObjectURL(link.href);
             }
         });
 
         document.getElementById('guest-download-btn').addEventListener('click', () => {
-            if (currentAnswerToken) {
-                downloadImageWithToken('answer_beacon.jpg', currentAnswerToken, 'StarBlazer_Answer.jpg');
+            if (guestAnswerBlob) {
+                const link = document.createElement('a');
+                link.download = `StarBlazer_Answer_${state.lobbyId || 'Lobby'}.jpg`;
+                link.href = URL.createObjectURL(guestAnswerBlob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+            }
+        });
+
+        document.getElementById('host-avatar-use-btn').addEventListener('click', () => {
+            const canvas = document.getElementById('host-avatar-canvas');
+            if (canvas) {
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                setPlayerAvatar(1, dataUrl);
+                showToast("Set as Player 1 avatar!");
+            }
+        });
+
+        document.getElementById('guest-avatar-use-btn').addEventListener('click', () => {
+            const canvas = document.getElementById('guest-avatar-canvas');
+            if (canvas) {
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                setPlayerAvatar(2, dataUrl);
+                showToast("Set as Player 2 avatar!");
             }
         });
 
@@ -3029,10 +3435,13 @@
                 showToast('Please paste a connection code first.');
                 return;
             }
-            if (state.onlineRole === 1) {
+            if (val.startsWith("SB_OFFER:")) {
+                initGuestWebRTC(val);
+                document.getElementById('lobby-text-fallback').style.display = 'block';
+            } else if (val.startsWith("SB_ANSWER:")) {
                 handleGuestAnswer(val);
             } else {
-                initGuestWebRTC(val);
+                showToast('Invalid code format. Make sure it is an Invite or Answer code.');
             }
         });
     }
@@ -3087,6 +3496,8 @@
             type: 'init',
             board: boardData,
             playerColors: state.playerColors,
+            playerNames: state.playerNames,
+            playerAvatars: state.playerAvatars,
             currentPlayer: state.currentPlayer,
             totalPieces: state.totalPieces,
             playerCounts: state.playerCounts,
@@ -3110,6 +3521,17 @@
         
         state.board = new Map(data.board);
         state.playerColors = data.playerColors;
+        
+        if (data.playerNames) {
+            state.playerNames = data.playerNames;
+            updatePlayerName(1, state.playerNames[1]);
+            updatePlayerName(2, state.playerNames[2]);
+        }
+        if (data.playerAvatars) {
+            setPlayerAvatar(1, data.playerAvatars[1]);
+            setPlayerAvatar(2, data.playerAvatars[2]);
+        }
+        
         state.currentPlayer = data.currentPlayer;
         state.totalPieces = data.totalPieces;
         state.playerCounts = data.playerCounts;
@@ -3178,6 +3600,12 @@
                 break;
             case 'color':
                 executeColorRemote(msg.player, msg.color);
+                break;
+            case 'name_change':
+                updatePlayerName(msg.player, msg.name);
+                break;
+            case 'avatar':
+                setPlayerAvatar(msg.player, msg.avatar);
                 break;
         }
         
@@ -3249,6 +3677,40 @@
         const recenterBtn = document.getElementById('recenter-btn');
         if (recenterBtn) recenterBtn.classList.remove('active');
 
+        // Restore solid colors to chips
+        const p1Chip = document.getElementById('player1-chip');
+        if (p1Chip) {
+            p1Chip.style.backgroundImage = '';
+            p1Chip.style.backgroundColor = state.playerColors[1];
+            p1Chip.style.border = '';
+        }
+        const p2Chip = document.getElementById('player2-chip');
+        if (p2Chip) {
+            p2Chip.style.backgroundImage = '';
+            p2Chip.style.backgroundColor = state.playerColors[2];
+            p2Chip.style.border = '';
+        }
+        
+        state.playerAvatars = { 1: null, 2: null };
+        
+        // Remove patterns
+        for (const p of [1, 2]) {
+            const pattern = document.getElementById(`player${p}-avatar-pattern`);
+            if (pattern) pattern.remove();
+        }
+
+        // Rerender cells
+        state.board.forEach((stack, key) => {
+            const [cq, cr] = key.split(',').map(Number);
+            renderCell(cq, cr);
+        });
+
+        // Reset names to local values
+        const name1 = document.querySelector('#player1-card .player-name');
+        if (name1) name1.textContent = state.playerNames[1] || 'Player 1';
+        const name2 = document.querySelector('#player2-card .player-name');
+        if (name2) name2.textContent = state.playerNames[2] || 'Player 2';
+
         refreshUI();
     }
 
@@ -3259,6 +3721,9 @@
     }
 
     function updateMultiplayerCardsUI() {
+        const name1El = document.querySelector('#player1-card .player-name');
+        const name2El = document.querySelector('#player2-card .player-name');
+
         for (const p of [1, 2]) {
             const btn = document.getElementById(`p${p}-type-btn`);
             if (!btn) continue;
@@ -3283,6 +3748,20 @@
                 btn.disabled = false;
                 btn.style.pointerEvents = '';
                 updatePlayerAutoUI(p);
+            }
+        }
+
+        // Enforce contenteditable permissions based on role
+        if (name1El && name2El) {
+            if (state.onlineRole === 1) {
+                name1El.contentEditable = "true";
+                name2El.contentEditable = "false";
+            } else if (state.onlineRole === 2) {
+                name1El.contentEditable = "false";
+                name2El.contentEditable = "true";
+            } else {
+                name1El.contentEditable = "true";
+                name2El.contentEditable = "true";
             }
         }
     }

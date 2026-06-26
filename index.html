@@ -97,7 +97,7 @@
                             <button class="swatch" data-color="#ec4899" style="background-color: #ec4899; --tx: 37px; --ty: -37px;" aria-label="Pink"></button>
                         </div>
                     </div>
-                    <h2 class="player-name">Player 1</h2>
+                    <h2 class="player-name" contenteditable="true" spellcheck="false">Player 1</h2>
                     <div class="royal-status" id="player1-royal-status">
                         <span class="royal-icon">♛</span>
                         <span class="royal-label" id="player1-royal-label">Royal: Ready</span>
@@ -212,7 +212,7 @@
                             <button class="swatch" data-color="#ec4899" style="background-color: #ec4899; --tx: 37px; --ty: -37px;" aria-label="Pink"></button>
                         </div>
                     </div>
-                    <h2 class="player-name">Player 2</h2>
+                    <h2 class="player-name" contenteditable="true" spellcheck="false">Player 2</h2>
                     <div class="royal-status" id="player2-royal-status">
                         <span class="royal-icon">♛</span>
                         <span class="royal-label" id="player2-royal-label">Royal: Ready</span>
@@ -295,82 +295,87 @@
             <h2 class="modal-title">🌌 StarBlazer Serverless Multiplayer</h2>
             <div class="modal-body">
                 
-                <!-- Step 1: Choose Role -->
-                <div id="lobby-role-selection" class="lobby-section">
-                    <p class="lobby-desc text-center">Play online without any servers. Choose your role to begin:</p>
-                    <div class="role-buttons">
-                        <button class="btn btn--primary btn--large" id="role-host-btn">
-                            <span class="role-icon">📡</span>
-                            <strong>Create Lobby (Host)</strong>
-                            <span class="role-sub">Generate Invitation Beacon image</span>
-                        </button>
-                        <button class="btn btn--secondary btn--large" id="role-guest-btn">
-                            <span class="role-icon">📥</span>
-                            <strong>Join Lobby (Guest)</strong>
-                            <span class="role-sub">Upload Invite Beacon image</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Host Screen -->
-                <div id="lobby-host-screen" class="lobby-section" style="display: none;">
-                    <h3 class="section-title">1. Send Invite to Friend</h3>
-                    <p class="lobby-desc">Wait for the invite to generate, then download the Invite Beacon image and send it to your friend.</p>
-                    
-                    <div class="qr-container">
-                        <div class="qr-spinner" id="host-qr-spinner">
-                            <span class="lobby-spinner"></span>
-                            <p id="host-qr-spinner-text">Preparing Invitation Beacon...</p>
-                        </div>
-                        <img id="host-preview-img" src="invite_beacon.jpg" style="display: none; width: 200px; height: 200px; object-fit: cover; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);">
-                    </div>
-
-                    <div class="lobby-actions">
-                        <button class="btn btn--primary" id="host-download-btn" disabled>
-                            📥 Download Invite Beacon (PNG)
-                        </button>
-                    </div>
-
-                    <h3 class="section-title mt-lg">2. Upload Friend's Response</h3>
-                    <p class="lobby-desc">Once your friend processes your invite, they will send you an "Answer Beacon" image. Upload it here to start the game.</p>
-                    
-                    <div class="dropzone" id="host-dropzone">
-                        <span class="dropzone-icon">📷</span>
-                        <p class="dropzone-text" id="host-dropzone-text">Drop Answer Beacon here or click to browse</p>
-                        <input type="file" id="host-file-input" accept="image/png, image/jpeg" style="display: none;">
-                    </div>
-                </div>
-
-                <!-- Guest Screen -->
-                <div id="lobby-guest-screen" class="lobby-section" style="display: none;">
-                    <h3 class="section-title">1. Upload Friend's Invite</h3>
-                    <p class="lobby-desc">Select or drop the Invite Beacon image that your friend sent you.</p>
-                    
-                    <div class="dropzone" id="guest-dropzone">
-                        <span class="dropzone-icon">📷</span>
-                        <p class="dropzone-text" id="guest-dropzone-text">Drop Invite Beacon here or click to browse</p>
-                        <input type="file" id="guest-file-input" accept="image/png, image/jpeg" style="display: none;">
-                    </div>
-
-                    <div id="guest-response-section" style="display: none;">
-                        <h3 class="section-title mt-lg">2. Send Answer Back</h3>
-                        <p class="lobby-desc">We successfully decoded the invite! Download this Answer Beacon image and send it back to your friend to establish the connection.</p>
-                        
-                        <div class="qr-container">
-                            <div class="qr-spinner" id="guest-qr-spinner" style="display: none;">
-                                <span class="lobby-spinner"></span>
-                                <p>Preparing Answer Beacon...</p>
-                            </div>
-                            <img id="guest-preview-img" src="answer_beacon.jpg" style="display: none; width: 200px; height: 200px; object-fit: cover; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);">
-                        </div>
-
-                        <div class="lobby-actions">
-                            <button class="btn btn--primary" id="guest-download-btn">
-                                📥 Download Answer Beacon (PNG)
+                <div class="lobby-grid">
+                    <!-- Host Area -->
+                    <div class="lobby-panel-side host-side">
+                        <div id="host-initial-container" style="width: 100%;">
+                            <button class="lobby-action-card" id="role-host-btn" style="width: 100%; border: none;">
+                                <span class="role-icon">📡</span>
+                                <strong>Create Lobby</strong>
+                                <span class="role-sub">Generate unique Invite Avatar</span>
                             </button>
                         </div>
                         
-                        <p class="lobby-desc text-center mt-sm text-accent">Waiting for Host to receive your answer and start the game...</p>
+                        <div id="host-active-container" style="display: none; width: 100%;">
+                            <div class="qr-container" id="host-qr-container">
+                                <div class="qr-spinner" id="host-qr-spinner">
+                                    <span class="lobby-spinner"></span>
+                                    <p id="host-qr-spinner-text">Gathering candidates...</p>
+                                </div>
+                                <div class="avatar-preview-wrapper" id="host-avatar-wrapper" style="display: none;">
+                                    <canvas id="host-avatar-canvas" width="300" height="300" class="avatar-canvas"></canvas>
+                                    <div class="avatar-overlay-label">INVITE BEACON</div>
+                                </div>
+                            </div>
+                            
+                            <div class="lobby-actions-row mt-md" id="host-actions-row" style="display: none;">
+                                <button class="btn btn--primary btn--sm" id="host-download-btn">
+                                    📥 Download Invite Image
+                                </button>
+                                <button class="btn btn--secondary btn--xs" id="host-avatar-use-btn" title="Use this spaceship as your player avatar">
+                                    👤 Set as My Avatar
+                                </button>
+                            </div>
+                            
+                            <div class="dropzone-wrapper mt-md" id="host-response-section" style="display: none;">
+                                <h4 class="dropzone-label">2. Upload Friend's Answer</h4>
+                                <div class="dropzone dropzone--small" id="host-dropzone">
+                                    <span class="dropzone-icon">📷</span>
+                                    <p class="dropzone-text" id="host-dropzone-text">Drop Answer Beacon here or click to browse</p>
+                                    <input type="file" id="host-file-input" accept="image/png, image/jpeg" style="display: none;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="lobby-divider"></div>
+
+                    <!-- Guest Area -->
+                    <div class="lobby-panel-side guest-side">
+                        <div id="guest-initial-container" style="width: 100%;">
+                            <div class="dropzone lobby-action-card" id="guest-dropzone" style="min-height: 200px;">
+                                <span class="role-icon">📥</span>
+                                <strong>Join Lobby</strong>
+                                <span class="role-sub">Drop Invite Beacon image here or click to browse</span>
+                                <input type="file" id="guest-file-input" accept="image/png, image/jpeg" style="display: none;">
+                            </div>
+                        </div>
+
+                        <div id="guest-active-container" style="display: none; width: 100%;">
+                            <div class="qr-container" id="guest-qr-container">
+                                <div class="qr-spinner" id="guest-qr-spinner">
+                                    <span class="lobby-spinner"></span>
+                                    <p>Preparing Answer Beacon...</p>
+                                </div>
+                                <div class="avatar-preview-wrapper" id="guest-avatar-wrapper" style="display: none;">
+                                    <canvas id="guest-avatar-canvas" width="300" height="300" class="avatar-canvas"></canvas>
+                                    <div class="avatar-overlay-label">ANSWER BEACON</div>
+                                </div>
+                            </div>
+                            
+                            <div class="lobby-actions-row mt-md" id="guest-actions-row" style="display: none;">
+                                <button class="btn btn--primary btn--sm" id="guest-download-btn">
+                                    📥 Download Answer Image
+                                </button>
+                                <button class="btn btn--secondary btn--xs" id="guest-avatar-use-btn" title="Use this spaceship as your player avatar">
+                                    👤 Set as My Avatar
+                                </button>
+                            </div>
+                            
+                            <p class="lobby-status-text text-accent mt-md text-center" style="font-size: 0.8rem; font-weight: 500;">
+                                📡 Sent answer! Waiting for Host to connect...
+                            </p>
+                        </div>
                     </div>
                 </div>
 
