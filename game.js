@@ -1754,42 +1754,53 @@
         const activePiece = state.actionMode.replace('place_', '').replace('move_', '');
         const pieceTypes = ['royal', 'soldier', 'corvette', 'hopper', 'general'];
 
-        // Disable toolbar if it's not our turn in online play
-        const toolbarEl = document.getElementById('action-toolbar');
-        if (toolbarEl) {
-            const isMyTurn = (state.onlineRole === null) || (state.currentPlayer === state.onlineRole);
-            const shouldDisable = !isMyTurn || state.gameOver;
-            toolbarEl.style.pointerEvents = shouldDisable ? 'none' : '';
-            toolbarEl.style.opacity = shouldDisable ? '0.5' : '';
-        }
-
-        // Update active piece button styling
-        pieceTypes.forEach(type => {
-            const btn = document.getElementById(`btn-piece-${type}`);
-            if (btn) {
-                const isActive = activePiece === type && !state.gameOver;
-                btn.classList.toggle('toolbar-btn--active', isActive);
-
-                if (type === 'royal') {
-                    const isForced = available.length === 1 && available[0] === 'place_royal';
-                    const forcedBadge = document.getElementById('count-badge-royal-forced');
-                    if (forcedBadge) forcedBadge.style.display = isForced ? '' : 'none';
+        // Disable interaction on drawers if it's not our turn in online play
+        const isMyTurn = (state.onlineRole === null) || (state.currentPlayer === state.onlineRole);
+        for (const p of [1, 2]) {
+            const drawer = document.getElementById(`drawer-p${p}`);
+            if (drawer) {
+                const shouldDisable = !isMyTurn || state.currentPlayer !== p || state.gameOver;
+                drawer.style.pointerEvents = shouldDisable ? 'none' : '';
+                if (!isMyTurn && state.currentPlayer === p) {
+                    drawer.style.opacity = '0.5';
+                } else {
+                    drawer.style.opacity = '';
                 }
             }
-        });
+        }
 
-        // Update Counts
-        const soldierCount = document.getElementById('count-badge-soldier');
-        if (soldierCount) soldierCount.textContent = state.soldierReserveCount[state.currentPlayer];
+        for (const p of [1, 2]) {
+            const isCurrent = (state.currentPlayer === p);
 
-        const corvetteCount = document.getElementById('count-badge-corvette');
-        if (corvetteCount) corvetteCount.textContent = state.corvetteReserveCount[state.currentPlayer];
+            // Update row active and forced states
+            pieceTypes.forEach(type => {
+                const rowEl = document.querySelector(`#drawer-p${p} .drawer-piece-row[data-piece="${type}"]`);
+                if (rowEl) {
+                    const isActiveRow = isCurrent && activePiece === type && !state.gameOver;
+                    rowEl.classList.toggle('drawer-piece-row--active', isActiveRow);
 
-        const hopperCount = document.getElementById('count-badge-hopper');
-        if (hopperCount) hopperCount.textContent = state.hopperReserveCount[state.currentPlayer];
+                    if (type === 'royal') {
+                        const isForced = isCurrent && available.length === 1 && available[0] === 'place_royal';
+                        rowEl.classList.toggle('drawer-piece-row--forced', isForced);
+                        const badge = document.getElementById(`p${p}-royal-required-badge`);
+                        if (badge) badge.style.display = isForced ? '' : 'none';
+                    }
+                }
+            });
 
-        const generalCount = document.getElementById('count-badge-general');
-        if (generalCount) generalCount.textContent = state.generalReserveCount[state.currentPlayer];
+            // Update Counts
+            const soldierCount = document.getElementById(`p${p}-soldier-count`);
+            if (soldierCount) soldierCount.textContent = state.soldierReserveCount[p];
+
+            const corvetteCount = document.getElementById(`p${p}-corvette-count`);
+            if (corvetteCount) corvetteCount.textContent = state.corvetteReserveCount[p];
+
+            const hopperCount = document.getElementById(`p${p}-hopper-count`);
+            if (hopperCount) hopperCount.textContent = state.hopperReserveCount[p];
+
+            const generalCount = document.getElementById(`p${p}-general-count`);
+            if (generalCount) generalCount.textContent = state.generalReserveCount[p];
+        }
     }
 
     function updateStatus() {
@@ -2149,19 +2160,19 @@
         }
     }
 
-    function initToolbarClicks() {
-        const btns = document.querySelectorAll('.action-toolbar .toolbar-btn:not(#hand-toggle-btn)');
-        btns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (state.gameOver) return;
+    function initDrawerRowClicks(player) {
+        const rows = document.querySelectorAll(`#drawer-p${player} .drawer-piece-row`);
+        rows.forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('.piece-fan-menu')) return;
+                if (state.currentPlayer !== player || state.gameOver) return;
 
                 // Lock clicks during opponent's turn in online play
                 if (state.onlineRole !== null && state.currentPlayer !== state.onlineRole) return;
 
                 stopCurrentPlayerAuto();
 
-                const type = btn.dataset.piece;
-                const player = state.currentPlayer;
+                const type = row.dataset.piece;
                 const available = getAvailableActions();
 
                 let canPlacePiece = false;
@@ -2181,29 +2192,29 @@
                 }
             });
         });
-
-        // Handedness toggle listener
-        const handBtn = document.getElementById('hand-toggle-btn');
-        if (handBtn) {
-            handBtn.addEventListener('click', () => {
-                const mainArea = document.getElementById('game-main-area');
-                if (mainArea) {
-                    mainArea.classList.toggle('left-handed');
-                    const isLeft = mainArea.classList.contains('left-handed');
-                    localStorage.setItem('leftHanded', isLeft ? 'true' : 'false');
-                }
-            });
-        }
     }
 
     function init() {
         buildBoard();
 
+        // Handedness toggle listener
+        const handBtn = document.getElementById('hand-toggle-btn');
+        if (handBtn) {
+            handBtn.addEventListener('click', () => {
+                const gameLayout = document.querySelector('.game-layout');
+                if (gameLayout) {
+                    gameLayout.classList.toggle('left-handed');
+                    const isLeft = gameLayout.classList.contains('left-handed');
+                    localStorage.setItem('leftHanded', isLeft ? 'true' : 'false');
+                }
+            });
+        }
+
         // Load handedness preference
         const isLeft = localStorage.getItem('leftHanded') === 'true';
-        const mainArea = document.getElementById('game-main-area');
-        if (mainArea && isLeft) {
-            mainArea.classList.add('left-handed');
+        const gameLayout = document.querySelector('.game-layout');
+        if (gameLayout && isLeft) {
+            gameLayout.classList.add('left-handed');
         }
 
         // Controls
@@ -2283,8 +2294,8 @@
             }
         });
 
-        initToolbarClicks();
         for (const p of [1, 2]) {
+            initDrawerRowClicks(p);
             initSwatches(p);
             initColorPickerFan(p);
         }
