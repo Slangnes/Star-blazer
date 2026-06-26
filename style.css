@@ -2145,4 +2145,188 @@ body.theme-alabaster .help-piece-item {
     }
 }
 
+/* === Serverless Multiplayer Lobby Styles === */
+.modal-card--lobby {
+    max-width: 500px !important;
+    width: 95% !important;
+}
+
+.lobby-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    animation: fadeIn var(--transition-normal) ease-out;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mt-lg { margin-top: var(--space-lg); }
+.text-accent { color: var(--accent); }
+
+.role-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    margin: var(--space-md) 0;
+}
+
+.btn--large {
+    padding: var(--space-md) var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    text-align: center;
+    height: auto;
+    border-radius: var(--radius-lg);
+}
+
+.role-icon {
+    font-size: 1.8rem;
+    margin-bottom: var(--space-xs);
+}
+
+.role-sub {
+    font-size: 0.72rem;
+    font-weight: normal;
+    opacity: 0.7;
+    color: var(--text-secondary);
+}
+
+.section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-left: 3px solid var(--accent);
+    padding-left: 8px;
+    margin-bottom: -4px;
+}
+
+.qr-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px dashed var(--border-medium);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    min-height: 240px;
+    position: relative;
+}
+
+.qr-container canvas {
+    background: white;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    max-width: 100%;
+    height: auto !important;
+    width: 200px !important;
+    height: 200px !important;
+}
+
+.qr-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.dropzone {
+    border: 2px dashed var(--border-accent);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    text-align: center;
+    background: rgba(255, 255, 255, 0.01);
+    cursor: pointer;
+    transition: background var(--transition-fast) ease, border-color var(--transition-fast) ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.dropzone:hover, .dropzone.dragover {
+    background: rgba(139, 92, 246, 0.05);
+    border-color: var(--accent);
+}
+
+.dropzone-icon {
+    font-size: 2rem;
+}
+
+.dropzone-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.text-fallback-section {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-md);
+    margin-top: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.btn-text-toggle {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-decoration: underline;
+    opacity: 0.7;
+    transition: opacity var(--transition-fast) ease;
+}
+
+.btn-text-toggle:hover {
+    opacity: 1;
+    color: var(--accent);
+}
+
+.text-inputs {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    margin-top: var(--space-sm);
+    gap: var(--space-xs);
+    animation: fadeIn var(--transition-normal) ease-out;
+}
+
+.text-inputs textarea {
+    width: 100%;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    resize: none;
+    font-family: monospace;
+    outline: none;
+}
+
+.text-inputs textarea:focus {
+    border-color: var(--accent);
+}
+
+.lobby-actions {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
 

@@ -2273,6 +2273,7 @@
         }
 
         // Controls
+        // Controls
         const onlineBtn = document.getElementById('online-btn');
         if (onlineBtn) {
             onlineBtn.addEventListener('click', () => {
@@ -2281,36 +2282,8 @@
                         resetToOffline();
                     }
                 } else {
-                    createLobby();
-                }
-            });
-        }
-
-        const closeBtn = document.getElementById('lobby-close-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                resetToOffline();
-            });
-        }
-
-        const copyBtn = document.getElementById('lobby-copy-btn');
-        if (copyBtn) {
-            copyBtn.addEventListener('click', () => {
-                const input = document.getElementById('lobby-link-input');
-                if (input) {
-                    input.select();
-                    input.setSelectionRange(0, 99999);
-                    navigator.clipboard.writeText(input.value).then(() => {
-                        const copyText = document.getElementById('lobby-copy-text');
-                        if (copyText) {
-                            copyText.textContent = 'Copied!';
-                            setTimeout(() => {
-                                copyText.textContent = 'Copy Link';
-                            }, 2000);
-                        }
-                    }).catch(err => {
-                        console.error('Copy failed:', err);
-                    });
+                    resetLobbyScreens();
+                    document.getElementById('lobby-modal').style.display = '';
                 }
             });
         }
@@ -2370,24 +2343,6 @@
         animateViewBox();
 
         refreshUI();
-        checkRoomURL();
-
-        // Reconnect PeerJS signaling server when window is focused or tab becomes visible
-        window.addEventListener('focus', () => {
-            if (state.peer && state.peer.disconnected && !state.peer.destroyed) {
-                console.log('Window focused. Resuming signaling server connection...');
-                attemptReconnect();
-            }
-        });
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                if (state.peer && state.peer.disconnected && !state.peer.destroyed) {
-                    console.log('Tab became visible. Resuming signaling server connection...');
-                    attemptReconnect();
-                }
-            }
-        });
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2624,180 +2579,481 @@
     let toastTimer = null;
     let reconnectTimeout = null;
 
-    function attemptReconnect() {
-        if (!state.peer || state.peer.destroyed) return;
-        if (!state.peer.disconnected) return;
-        
-        console.log('Attempting to reconnect to PeerJS signaling server...');
-        state.peer.reconnect();
-        
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = setTimeout(() => {
-            if (state.peer && state.peer.disconnected && !state.peer.destroyed) {
-                attemptReconnect();
+    async function compressString(str) {
+        try {
+            const stream = new Blob([str]).stream();
+            const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+            const response = new Response(compressedStream);
+            const blob = await response.blob();
+            const buffer = await blob.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
             }
-        }, 5000);
-    }
-
-    function checkRoomURL() {
-        const params = new URLSearchParams(window.location.search);
-        const roomId = params.get('room');
-        if (roomId) {
-            connectToLobby(roomId);
+            return "GZ:" + btoa(binary);
+        } catch (e) {
+            console.warn("CompressionStream not supported, using base64 fallback:", e);
+            return "RAW:" + btoa(unescape(encodeURIComponent(str)));
         }
     }
 
-    function connectToLobby(roomId) {
-        state.onlineRole = 2; // Guest
-        updateMultiplayerUI('connecting', 'Connecting to lobby...');
-        
-        document.getElementById('reset-btn').disabled = true;
-        document.getElementById('undo-btn').disabled = true;
-        
-        clearTimeout(reconnectTimeout);
-
-        // Initialize PeerJS
-        state.peer = new Peer(undefined, {
-            debug: 2,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
-                ]
+    async function decompressString(token) {
+        if (token.startsWith("GZ:")) {
+            const base64Str = token.substring(3);
+            const binary = atob(base64Str.trim());
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
             }
-        });
-        
-        state.peer.on('open', (id) => {
-            console.log('Guest peer opened with ID:', id, '. Connecting to room:', roomId);
-            const conn = state.peer.connect(roomId);
-            setupConnection(conn);
-        });
-
-        state.peer.on('disconnected', () => {
-            console.warn('Guest disconnected from signaling server.');
-            if (!state.conn || !state.conn.open) {
-                updateMultiplayerUI('reconnecting', 'Server connection lost. Reconnecting...');
-                attemptReconnect();
+            const stream = new Blob([bytes]).stream();
+            const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+            const response = new Response(decompressedStream);
+            const blob = await response.blob();
+            return await blob.text();
+        } else if (token.startsWith("RAW:")) {
+            const base64Str = token.substring(4);
+            return decodeURIComponent(escape(atob(base64Str)));
+        } else {
+            try {
+                return atob(token);
+            } catch (e) {
+                return token;
             }
-        });
+        }
+    }
 
-        state.peer.on('error', (err) => {
-            console.error('Guest peer error:', err);
-            const type = err.type;
-            if (type === 'peer-unavailable') {
-                showToast('Lobby not found. Make sure the Host is online and has the game open.');
-                resetToOffline();
-            } else if (type === 'network' || type === 'socket-closed' || type === 'socket-error') {
-                console.warn('Signaling server network error. Attempting background recovery...');
-                if (!state.conn || !state.conn.open) {
-                    updateMultiplayerUI('reconnecting', 'Connection lost. Retrying...');
-                    attemptReconnect();
-                }
+    function generateQRCode(canvasId, text) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        canvas.style.display = 'none';
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        QRCode.toCanvas(canvas, text, {
+            width: 250,
+            margin: 1,
+            errorCorrectionLevel: 'M'
+        }, function (error) {
+            if (error) {
+                console.error('QR code generation error:', error);
             } else {
-                showToast('Lobby connection error. Reverting to offline.');
-                resetToOffline();
+                canvas.style.display = 'block';
             }
         });
     }
 
-    function createLobby() {
-        state.onlineRole = 1; // Host
-        updateMultiplayerUI('connecting', 'Creating online lobby...');
-        
-        clearTimeout(reconnectTimeout);
+    function downloadCanvasAsPNG(canvasId, filename) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
 
-        state.peer = new Peer(undefined, {
-            debug: 2,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
-                ]
-            }
-        });
-        
-        state.peer.on('open', (id) => {
-            console.log('Host peer opened with ID:', id);
-            const joinLink = window.location.origin + window.location.pathname + '?room=' + id;
-            const input = document.getElementById('lobby-link-input');
-            if (input) input.value = joinLink;
-            
-            updateMultiplayerUI('waiting', 'Lobby created. Waiting for opponent...');
-        });
-
-        state.peer.on('connection', (conn) => {
-            console.log('Opponent connected as Guest!');
-            setupConnection(conn);
-            
-            // Host sends initial state to Guest
-            setTimeout(() => {
-                sendStateSync();
-            }, 500); // Small timeout to ensure data channel is fully ready
-        });
-
-        state.peer.on('disconnected', () => {
-            console.warn('Host disconnected from signaling server.');
-            if (!state.conn || !state.conn.open) {
-                updateMultiplayerUI('reconnecting', 'Server connection lost. Reconnecting to lobby...');
-                attemptReconnect();
-            }
-        });
-
-        state.peer.on('error', (err) => {
-            console.error('Host peer error:', err);
-            const type = err.type;
-            if (type === 'unavailable-id') {
-                showToast('Lobby ID already in use. Try starting a new game.');
-                resetToOffline();
-            } else if (type === 'network' || type === 'socket-closed' || type === 'socket-error') {
-                console.warn('Signaling server network error. Attempting background recovery...');
-                if (!state.conn || !state.conn.open) {
-                    updateMultiplayerUI('reconnecting', 'Server connection error. Retrying...');
-                    attemptReconnect();
-                }
-            } else {
-                showToast(`Lobby error: ${type || err.message || 'unknown'}`);
-                resetToOffline();
-            }
+    function decodeQRCodeFromFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    try {
+                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imgData.data, canvas.width, canvas.height);
+                        if (code && code.data) {
+                            resolve(code.data);
+                        } else {
+                            reject(new Error("Could not find a valid QR Code in this image. Make sure the QR code is clearly visible."));
+                        }
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.onerror = () => reject(new Error("Failed to load image file."));
+                img.src = e.target.result;
+            };
+            reader.onerror = () => reject(new Error("Failed to read file."));
+            reader.readAsDataURL(file);
         });
     }
 
-    function setupConnection(conn) {
-        state.conn = conn;
-        
-        state.conn.on('open', () => {
-            console.log('Data connection established with peer.');
-            showToast('Opponent connected! Game starting.');
+    const rtcConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+        ]
+    };
+
+    async function initHostWebRTC() {
+        try {
+            state.onlineRole = 1;
             
-            updateMultiplayerUI('connected', '');
+            cleanupWebRTC();
+
+            console.log("Initializing Host WebRTC...");
+            const pc = new RTCPeerConnection(rtcConfig);
+            state.pc = pc;
+
+            const dc = pc.createDataChannel("starblazer-data", { negotiated: false });
+            state.conn = dc;
+            setupDataChannelEvents(dc);
+
+            pc.oniceconnectionstatechange = () => {
+                console.log("ICE Connection State Change:", pc.iceConnectionState);
+                if (pc.iceConnectionState === 'connected') {
+                    showToast("Opponent connected! Game starting.");
+                    updateLobbyUIForConnected();
+                } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    showToast("Opponent disconnected. Reverting to local play.");
+                    resetToOffline();
+                }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
+            await new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') {
+                    resolve();
+                } else {
+                    const checkState = () => {
+                        if (pc.iceGatheringState === 'complete') {
+                            pc.removeEventListener('icecandidate', checkCandidate);
+                            resolve();
+                        }
+                    };
+                    const checkCandidate = (e) => {
+                        if (!e.candidate) {
+                            pc.removeEventListener('icecandidate', checkCandidate);
+                            resolve();
+                        }
+                    };
+                    pc.addEventListener('icegatheringstatechange', checkState);
+                    pc.addEventListener('icecandidate', checkCandidate);
+                }
+            });
+
+            const sdp = pc.localDescription.sdp;
+            const compressed = await compressString(sdp);
+            const offerToken = "SB_OFFER:" + compressed;
+
+            document.getElementById('host-qr-spinner').style.display = 'none';
+            generateQRCode('host-qr-canvas', offerToken);
+            document.getElementById('host-download-btn').disabled = false;
+            document.getElementById('raw-code-out').value = offerToken;
+
+        } catch (err) {
+            console.error("Host initialization error:", err);
+            showToast("Failed to initialize lobby: " + err.message);
+            resetToOffline();
+        }
+    }
+
+    async function initGuestWebRTC(offerToken) {
+        try {
+            state.onlineRole = 2;
+
+            if (!offerToken.startsWith("SB_OFFER:")) {
+                throw new Error("Invalid connection code. Make sure it is an Invite code.");
+            }
+
+            const compressed = offerToken.replace("SB_OFFER:", "").trim();
+            const offerSdp = await decompressString(compressed);
+
+            cleanupWebRTC();
+
+            console.log("Initializing Guest WebRTC...");
+            const pc = new RTCPeerConnection(rtcConfig);
+            state.pc = pc;
+
+            pc.ondatachannel = (e) => {
+                console.log("Received remote data channel!");
+                state.conn = e.channel;
+                setupDataChannelEvents(state.conn);
+                showToast("Connected to player! Game starting.");
+                updateLobbyUIForConnected();
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                console.log("ICE Connection State Change (Guest):", pc.iceConnectionState);
+                if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    showToast("Opponent disconnected. Reverting to local play.");
+                    resetToOffline();
+                }
+            };
+
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerSdp }));
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            document.getElementById('guest-qr-spinner').style.display = 'flex';
+            document.getElementById('guest-qr-canvas').style.display = 'none';
+            document.getElementById('guest-response-section').style.display = 'block';
+
+            await new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') {
+                    resolve();
+                } else {
+                    const checkState = () => {
+                        if (pc.iceGatheringState === 'complete') {
+                            pc.removeEventListener('icecandidate', checkCandidate);
+                            resolve();
+                        }
+                    };
+                    const checkCandidate = (e) => {
+                        if (!e.candidate) {
+                            pc.removeEventListener('icecandidate', checkCandidate);
+                            resolve();
+                        }
+                    };
+                    pc.addEventListener('icegatheringstatechange', checkState);
+                    pc.addEventListener('icecandidate', checkCandidate);
+                }
+            });
+
+            const sdp = pc.localDescription.sdp;
+            const compressedAnswer = await compressString(sdp);
+            const answerToken = "SB_ANSWER:" + compressedAnswer;
+
+            document.getElementById('guest-qr-spinner').style.display = 'none';
+            generateQRCode('guest-qr-canvas', answerToken);
+            document.getElementById('guest-download-btn').disabled = false;
+            document.getElementById('raw-code-out').value = answerToken;
+
+        } catch (err) {
+            console.error("Guest initialization error:", err);
+            showToast("Failed to join lobby: " + err.message);
+            resetToOffline();
+        }
+    }
+
+    async function handleGuestAnswer(answerToken) {
+        try {
+            if (!state.pc) {
+                throw new Error("Lobby is not initialized.");
+            }
+            if (!answerToken.startsWith("SB_ANSWER:")) {
+                throw new Error("Invalid connection code. Make sure it is an Answer code.");
+            }
+
+            const compressed = answerToken.replace("SB_ANSWER:", "").trim();
+            const answerSdp = await decompressString(compressed);
+
+            console.log("Setting remote description (Guest Answer)...");
+            await state.pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSdp }));
             
-            // Disable AI controllers for both
+            showToast("Connecting to peer...");
+        } catch (err) {
+            console.error("Error setting answer:", err);
+            showToast("Failed to connect: " + err.message);
+        }
+    }
+
+    function cleanupWebRTC() {
+        if (state.conn) {
+            state.conn.onopen = null;
+            state.conn.onmessage = null;
+            state.conn.onclose = null;
+            state.conn.onerror = null;
+            try {
+                state.conn.close();
+            } catch (e) {}
+            state.conn = null;
+        }
+        if (state.pc) {
+            state.pc.oniceconnectionstatechange = null;
+            state.pc.ondatachannel = null;
+            try {
+                state.pc.close();
+            } catch (e) {}
+            state.pc = null;
+        }
+    }
+
+    function setupDataChannelEvents(dc) {
+        dc.onopen = () => {
+            console.log("Data channel opened successfully!");
             state.playerAuto = { 1: false, 2: false };
             stopAllAutoplayTimers();
             
+            if (state.onlineRole === 1) {
+                setTimeout(() => {
+                    sendStateSync();
+                }, 500);
+            }
             refreshUI();
+        };
+
+        dc.onmessage = (e) => {
+            console.log("Received data channel message:", e.data);
+            try {
+                const data = JSON.parse(e.data);
+                handleIncomingMessage(data);
+            } catch (err) {
+                console.error("Error parsing message:", err);
+            }
+        };
+
+        dc.onclose = () => {
+            console.log("Data channel closed.");
+            showToast("Opponent disconnected. Reverting to local play.");
+            resetToOffline();
+        };
+
+        dc.onerror = (err) => {
+            console.error("Data channel error:", err);
+            showToast("Connection lost. Reverting to local play.");
+            resetToOffline();
+        };
+    }
+
+    function resetLobbyScreens() {
+        document.getElementById('lobby-role-selection').style.display = '';
+        document.getElementById('lobby-host-screen').style.display = 'none';
+        document.getElementById('lobby-guest-screen').style.display = 'none';
+        document.getElementById('lobby-text-fallback').style.display = 'none';
+        
+        document.getElementById('host-qr-canvas').style.display = 'none';
+        document.getElementById('guest-qr-canvas').style.display = 'none';
+        document.getElementById('host-qr-spinner').style.display = '';
+        document.getElementById('host-qr-spinner-text').textContent = 'Generating WebRTC handshake...';
+        document.getElementById('guest-qr-spinner').style.display = 'none';
+        document.getElementById('guest-response-section').style.display = 'none';
+        document.getElementById('host-download-btn').disabled = true;
+        
+        document.getElementById('host-dropzone-text').textContent = 'Drop Answer PNG here or click to browse';
+        document.getElementById('guest-dropzone-text').textContent = 'Drop Invite PNG here or click to browse';
+        
+        document.getElementById('raw-code-out').value = '';
+        document.getElementById('raw-code-in').value = '';
+        document.getElementById('text-inputs-container').style.display = 'none';
+    }
+
+    function initLobbyEventListeners() {
+        document.getElementById('role-host-btn').addEventListener('click', () => {
+            document.getElementById('lobby-role-selection').style.display = 'none';
+            document.getElementById('lobby-host-screen').style.display = '';
+            document.getElementById('lobby-text-fallback').style.display = '';
+            initHostWebRTC();
         });
 
-        state.conn.on('data', (data) => {
-            console.log('Received remote data:', data);
-            handleIncomingMessage(data);
+        document.getElementById('role-guest-btn').addEventListener('click', () => {
+            document.getElementById('lobby-role-selection').style.display = 'none';
+            document.getElementById('lobby-guest-screen').style.display = '';
+            document.getElementById('lobby-text-fallback').style.display = '';
         });
 
-        state.conn.on('close', () => {
-            console.log('Connection closed by peer.');
-            showToast('Opponent disconnected. Reverting to local play.');
+        document.getElementById('lobby-close-btn').addEventListener('click', () => {
             resetToOffline();
         });
 
-        state.conn.on('error', (err) => {
-            console.error('Connection error:', err);
-            showToast('Connection lost. Reverting to local play.');
-            resetToOffline();
+        document.getElementById('host-download-btn').addEventListener('click', () => {
+            downloadCanvasAsPNG('host-qr-canvas', 'StarBlazer_Invite.png');
         });
+
+        document.getElementById('guest-download-btn').addEventListener('click', () => {
+            downloadCanvasAsPNG('guest-qr-canvas', 'StarBlazer_Answer.png');
+        });
+
+        setupDropzone('host-dropzone', 'host-file-input', 'host-dropzone-text', async (file) => {
+            try {
+                const token = await decodeQRCodeFromFile(file);
+                await handleGuestAnswer(token);
+            } catch (err) {
+                showToast(err.message);
+            }
+        });
+
+        setupDropzone('guest-dropzone', 'guest-file-input', 'guest-dropzone-text', async (file) => {
+            try {
+                const token = await decodeQRCodeFromFile(file);
+                await initGuestWebRTC(token);
+            } catch (err) {
+                showToast(err.message);
+            }
+        });
+
+        document.getElementById('text-toggle-btn').addEventListener('click', () => {
+            const container = document.getElementById('text-inputs-container');
+            container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+        });
+
+        document.getElementById('copy-raw-btn').addEventListener('click', () => {
+            const textarea = document.getElementById('raw-code-out');
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                const btn = document.getElementById('copy-raw-btn');
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy Raw Code', 2000);
+            }).catch(err => {
+                showToast('Failed to copy code.');
+            });
+        });
+
+        document.getElementById('submit-raw-btn').addEventListener('click', () => {
+            const val = document.getElementById('raw-code-in').value.trim();
+            if (!val) {
+                showToast('Please paste a connection code first.');
+                return;
+            }
+            if (state.onlineRole === 1) {
+                handleGuestAnswer(val);
+            } else {
+                initGuestWebRTC(val);
+            }
+        });
+    }
+
+    function setupDropzone(dropzoneId, inputId, labelId, onFileSelected) {
+        const dropzone = document.getElementById(dropzoneId);
+        const input = document.getElementById(inputId);
+        const label = document.getElementById(labelId);
+        
+        if (!dropzone || !input) return;
+
+        dropzone.addEventListener('click', () => input.click());
+
+        input.addEventListener('change', () => {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                if (label) label.textContent = `Selected: ${file.name}`;
+                onFileSelected(file);
+            }
+        });
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (label) label.textContent = `Dropped: ${file.name}`;
+                onFileSelected(file);
+            }
+        });
+    }
+
+    function updateLobbyUIForConnected() {
+        document.getElementById('lobby-modal').style.display = 'none';
+        resetLobbyScreens();
     }
 
     function sendStateSync() {
@@ -2946,24 +3202,18 @@
     }
 
     function sendNetworkMessage(msg) {
-        if (state.conn && state.conn.open) {
-            state.conn.send(msg);
+        if (state.conn && (state.conn.open || state.conn.readyState === 'open')) {
+            const dataStr = typeof msg === 'object' ? JSON.stringify(msg) : msg;
+            state.conn.send(dataStr);
         }
     }
 
     function resetToOffline() {
         state.onlineRole = null;
-        clearTimeout(reconnectTimeout);
-        if (state.conn) {
-            state.conn.close();
-            state.conn = null;
-        }
-        if (state.peer) {
-            state.peer.destroy();
-            state.peer = null;
-        }
+        cleanupWebRTC();
         
         document.getElementById('lobby-modal').style.display = 'none';
+        resetLobbyScreens();
         
         const url = new URL(window.location);
         url.searchParams.delete('room');
@@ -2980,38 +3230,8 @@
     }
 
     function updateMultiplayerUI(status, text) {
-        const modal = document.getElementById('lobby-modal');
-        const statusText = document.getElementById('lobby-status');
-        const spinner = modal ? modal.querySelector('.lobby-spinner') : null;
-        const shareSection = document.getElementById('lobby-share-section');
-        const closeBtn = document.getElementById('lobby-close-btn');
-
-        if (statusText) statusText.textContent = text;
-
-        if (status === 'connecting') {
-            if (modal) modal.style.display = '';
-            if (spinner) spinner.style.display = '';
-            if (shareSection) shareSection.style.display = 'none';
-            if (closeBtn) closeBtn.style.display = 'none';
-        } else if (status === 'waiting') {
-            if (modal) modal.style.display = '';
-            if (spinner) spinner.style.display = '';
-            if (shareSection) shareSection.style.display = '';
-            if (closeBtn) closeBtn.style.display = '';
-        } else if (status === 'reconnecting') {
-            if (modal) modal.style.display = '';
-            if (spinner) spinner.style.display = '';
-            if (shareSection) {
-                const input = document.getElementById('lobby-link-input');
-                if (input && input.value) {
-                    shareSection.style.display = '';
-                } else {
-                    shareSection.style.display = 'none';
-                }
-            }
-            if (closeBtn) closeBtn.style.display = '';
-        } else if (status === 'connected') {
-            if (modal) modal.style.display = 'none';
+        if (status === 'connected') {
+            updateLobbyUIForConnected();
         }
     }
 
