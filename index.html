@@ -360,7 +360,7 @@
                             <div class="qr-container" id="guest-qr-container">
                                 <div class="qr-spinner" id="guest-qr-spinner">
                                     <span class="lobby-spinner"></span>
-                                    <p>Preparing Answer Beacon...</p>
+                                    <p id="guest-qr-spinner-text">Preparing Answer Beacon...</p>
                                 </div>
                                 <div class="avatar-preview-wrapper" id="guest-avatar-wrapper" style="display: none;">
                                     <canvas id="guest-avatar-canvas" width="300" height="300" class="avatar-canvas"></canvas>
@@ -377,7 +377,7 @@
                                 </button>
                             </div>
                             
-                            <p class="lobby-status-text text-accent mt-md text-center" style="font-size: 0.8rem; font-weight: 500;">
+                            <p class="lobby-status-text text-accent mt-md text-center" id="guest-status-text" style="display: none; font-size: 0.8rem; font-weight: 500;">
                                 📡 Sent answer! Waiting for Host to connect...
                             </p>
                         </div>

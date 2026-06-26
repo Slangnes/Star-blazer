@@ -3353,7 +3353,14 @@
             document.getElementById('host-active-container').style.display = 'block';
             document.getElementById('host-qr-spinner').style.display = 'flex';
             document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
-            document.getElementById('host-avatar-wrapper').style.display = 'none';
+            
+            // Draw and show host spaceship avatar instantly
+            const canvas = document.getElementById('host-avatar-canvas');
+            if (canvas) {
+                drawSpaceBeaconAvatar(canvas, 1, state.playerColors[1], state.lobbyId);
+            }
+            document.getElementById('host-avatar-wrapper').style.display = 'block';
+            
             document.getElementById('host-actions-row').style.display = 'none';
             document.getElementById('host-response-section').style.display = 'none';
 
@@ -3475,8 +3482,24 @@
             document.getElementById('guest-initial-container').style.display = 'none';
             document.getElementById('guest-active-container').style.display = 'block';
             document.getElementById('guest-qr-spinner').style.display = 'flex';
-            document.getElementById('guest-avatar-wrapper').style.display = 'none';
+            
+            const guestSpinnerText = document.getElementById('guest-qr-spinner-text');
+            if (guestSpinnerText) {
+                guestSpinnerText.textContent = 'Gathering network candidates...';
+            }
+            
+            // Draw and show guest spaceship avatar instantly
+            const canvas = document.getElementById('guest-avatar-canvas');
+            if (canvas) {
+                drawSpaceBeaconAvatar(canvas, 2, state.playerColors[2], state.lobbyId);
+            }
+            document.getElementById('guest-avatar-wrapper').style.display = 'block';
             document.getElementById('guest-actions-row').style.display = 'none';
+            
+            const guestStatus = document.getElementById('guest-status-text');
+            if (guestStatus) {
+                guestStatus.style.display = 'none';
+            }
 
             const pc = new RTCPeerConnection(rtcConfig);
             state.pc = pc;
@@ -3559,6 +3582,11 @@
             document.getElementById('guest-avatar-wrapper').style.display = 'block';
             document.getElementById('guest-actions-row').style.display = 'flex';
             document.getElementById('raw-code-out').value = answerToken;
+
+            const guestStatus = document.getElementById('guest-status-text');
+            if (guestStatus) {
+                guestStatus.style.display = 'block';
+            }
 
         } catch (err) {
             console.error("Guest initialization error:", err);
@@ -3684,8 +3712,10 @@
         setDisplay('host-response-section', 'none');
         
         setDisplay('guest-qr-spinner', 'flex');
+        setText('guest-qr-spinner-text', 'Preparing Answer Beacon...');
         setDisplay('guest-avatar-wrapper', 'none');
         setDisplay('guest-actions-row', 'none');
+        setDisplay('guest-status-text', 'none');
         
         setText('host-dropzone-text', 'Drop Answer Beacon here or click to browse');
         setText('guest-dropzone-text', 'Drop Invite Beacon here or click to browse');

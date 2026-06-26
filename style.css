@@ -1310,8 +1310,15 @@ body:not(.light-theme) .theme-icon--moon {
     font-size: 0.9rem;
 }
 
+#hand-toggle-btn {
+    display: none !important;
+}
+
 /* === Responsive === */
 @media (max-width: 768px) {
+    #hand-toggle-btn {
+        display: inline-flex !important;
+    }
     .player-panel {
         display: contents;
     }
