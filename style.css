@@ -1484,7 +1484,9 @@ body:not(.light-theme) .theme-icon--moon {
         font-size: 0.82rem;
         font-weight: 600;
         margin: 0;
+        margin-top: 4px;
         white-space: nowrap;
+        align-self: start;
     }
 
     .royal-status {
@@ -1530,6 +1532,7 @@ body:not(.light-theme) .theme-icon--moon {
         grid-column: 2;
         grid-row: 1;
         justify-self: end;
+        align-self: start;
         width: 32px;
         height: 32px;
         padding: 0;
@@ -1601,6 +1604,7 @@ body:not(.light-theme) .theme-icon--moon {
 
     .player-name {
         font-size: 0.75rem;
+        margin-top: 3px;
     }
 
     .player-type-btn {
