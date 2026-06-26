@@ -2371,6 +2371,23 @@
 
         refreshUI();
         checkRoomURL();
+
+        // Reconnect PeerJS signaling server when window is focused or tab becomes visible
+        window.addEventListener('focus', () => {
+            if (state.peer && state.peer.disconnected && !state.peer.destroyed) {
+                console.log('Window focused. Resuming signaling server connection...');
+                attemptReconnect();
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                if (state.peer && state.peer.disconnected && !state.peer.destroyed) {
+                    console.log('Tab became visible. Resuming signaling server connection...');
+                    attemptReconnect();
+                }
+            }
+        });
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2605,6 +2622,22 @@
     // ═══════════════════════════════════════════════════════════
 
     let toastTimer = null;
+    let reconnectTimeout = null;
+
+    function attemptReconnect() {
+        if (!state.peer || state.peer.destroyed) return;
+        if (!state.peer.disconnected) return;
+        
+        console.log('Attempting to reconnect to PeerJS signaling server...');
+        state.peer.reconnect();
+        
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(() => {
+            if (state.peer && state.peer.disconnected && !state.peer.destroyed) {
+                attemptReconnect();
+            }
+        }, 5000);
+    }
 
     function checkRoomURL() {
         const params = new URLSearchParams(window.location.search);
@@ -2621,8 +2654,20 @@
         document.getElementById('reset-btn').disabled = true;
         document.getElementById('undo-btn').disabled = true;
         
+        clearTimeout(reconnectTimeout);
+
         // Initialize PeerJS
-        state.peer = new Peer();
+        state.peer = new Peer(undefined, {
+            debug: 2,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+                ]
+            }
+        });
         
         state.peer.on('open', (id) => {
             console.log('Guest peer opened with ID:', id, '. Connecting to room:', roomId);
@@ -2630,18 +2675,50 @@
             setupConnection(conn);
         });
 
+        state.peer.on('disconnected', () => {
+            console.warn('Guest disconnected from signaling server.');
+            if (!state.conn || !state.conn.open) {
+                updateMultiplayerUI('reconnecting', 'Server connection lost. Reconnecting...');
+                attemptReconnect();
+            }
+        });
+
         state.peer.on('error', (err) => {
-            console.error('Peer connection error:', err);
-            showToast('Lobby connection error. Reverting to offline.');
-            resetToOffline();
+            console.error('Guest peer error:', err);
+            const type = err.type;
+            if (type === 'peer-unavailable') {
+                showToast('Lobby not found. Make sure the Host is online and has the game open.');
+                resetToOffline();
+            } else if (type === 'network' || type === 'socket-closed' || type === 'socket-error') {
+                console.warn('Signaling server network error. Attempting background recovery...');
+                if (!state.conn || !state.conn.open) {
+                    updateMultiplayerUI('reconnecting', 'Connection lost. Retrying...');
+                    attemptReconnect();
+                }
+            } else {
+                showToast('Lobby connection error. Reverting to offline.');
+                resetToOffline();
+            }
         });
     }
 
     function createLobby() {
         state.onlineRole = 1; // Host
         updateMultiplayerUI('connecting', 'Creating online lobby...');
+        
+        clearTimeout(reconnectTimeout);
 
-        state.peer = new Peer();
+        state.peer = new Peer(undefined, {
+            debug: 2,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+                ]
+            }
+        });
         
         state.peer.on('open', (id) => {
             console.log('Host peer opened with ID:', id);
@@ -2662,10 +2739,30 @@
             }, 500); // Small timeout to ensure data channel is fully ready
         });
 
+        state.peer.on('disconnected', () => {
+            console.warn('Host disconnected from signaling server.');
+            if (!state.conn || !state.conn.open) {
+                updateMultiplayerUI('reconnecting', 'Server connection lost. Reconnecting to lobby...');
+                attemptReconnect();
+            }
+        });
+
         state.peer.on('error', (err) => {
-            console.error('Peer lobby error:', err);
-            showToast('Matchmaking error. Reverting to offline.');
-            resetToOffline();
+            console.error('Host peer error:', err);
+            const type = err.type;
+            if (type === 'unavailable-id') {
+                showToast('Lobby ID already in use. Try starting a new game.');
+                resetToOffline();
+            } else if (type === 'network' || type === 'socket-closed' || type === 'socket-error') {
+                console.warn('Signaling server network error. Attempting background recovery...');
+                if (!state.conn || !state.conn.open) {
+                    updateMultiplayerUI('reconnecting', 'Server connection error. Retrying...');
+                    attemptReconnect();
+                }
+            } else {
+                showToast(`Lobby error: ${type || err.message || 'unknown'}`);
+                resetToOffline();
+            }
         });
     }
 
@@ -2856,6 +2953,7 @@
 
     function resetToOffline() {
         state.onlineRole = null;
+        clearTimeout(reconnectTimeout);
         if (state.conn) {
             state.conn.close();
             state.conn = null;
@@ -2899,6 +2997,18 @@
             if (modal) modal.style.display = '';
             if (spinner) spinner.style.display = '';
             if (shareSection) shareSection.style.display = '';
+            if (closeBtn) closeBtn.style.display = '';
+        } else if (status === 'reconnecting') {
+            if (modal) modal.style.display = '';
+            if (spinner) spinner.style.display = '';
+            if (shareSection) {
+                const input = document.getElementById('lobby-link-input');
+                if (input && input.value) {
+                    shareSection.style.display = '';
+                } else {
+                    shareSection.style.display = 'none';
+                }
+            }
             if (closeBtn) closeBtn.style.display = '';
         } else if (status === 'connected') {
             if (modal) modal.style.display = 'none';
