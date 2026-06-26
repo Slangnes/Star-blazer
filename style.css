@@ -369,7 +369,7 @@ body {
 }
 
 .player-card.active .player-indicator {
-    width: 60%;
+    width: 35%;
 }
 
 .player-chip-preview {
@@ -460,9 +460,9 @@ body {
     justify-content: center;
     gap: 6px;
     font-family: 'Outfit', sans-serif;
-    font-size: 0.72rem;
+    font-size: 0.82rem;
     font-weight: 500;
-    padding: 4px 14px;
+    padding: 6px 16px;
     border-radius: var(--radius-full);
     border: 1px solid var(--border-subtle);
     background: rgba(255, 255, 255, 0.02);
@@ -1459,7 +1459,7 @@ body:not(.light-theme) .theme-icon--moon {
     }
 
     .player-card.active .player-indicator {
-        width: 100%;
+        width: 35%;
     }
 
     .player-indicator {
@@ -1530,16 +1530,17 @@ body:not(.light-theme) .theme-icon--moon {
         grid-column: 2;
         grid-row: 1;
         justify-self: end;
-        padding: 2px;
+        padding: 4px 6px;
         margin: 0;
-        background: transparent;
-        border: none;
-        font-size: 0.8rem;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        font-size: 1.1rem;
     }
 
     .player-type-btn:hover {
-        background: transparent;
-        transform: scale(1.1);
+        background: var(--bg-card-active);
+        transform: scale(1.05);
     }
 
     .player-type-label {
