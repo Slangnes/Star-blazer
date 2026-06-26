@@ -22,6 +22,11 @@
     const state = {
         board: new Map(),                   // "q,r" → Array of [{ player: 1|2, type: 'chip'|'royal'|... }] (stacked)
         currentPlayer: 1,
+        progression: {
+            wins: 0,
+            moves: 0,
+            level: 1
+        },
         totalPieces: 0,                     // pieces currently on board (total stack size sum)
         moveHistory: [],                    // for undo
         playerColors: { 1: '#1a1a1a', 2: '#d4b896' },
@@ -1500,11 +1505,24 @@
     function endTurn() {
         clearHighlights();
 
+        // Increment moves played
+        state.progression.moves += 1;
+        localStorage.setItem('starblazer_moves', state.progression.moves);
+        calculateLevel();
+        updateProgressionUI();
+
         for (const p of [1, 2]) {
             if (state.royalPlaced[p] && isRoyalSurrounded(p)) {
                 const winner = p === 1 ? 2 : 1;
                 state.gameOver = true;
                 state.winner = winner;
+                
+                // Increment wins
+                state.progression.wins += 1;
+                localStorage.setItem('starblazer_wins', state.progression.wins);
+                calculateLevel();
+                updateProgressionUI();
+
                 showGameOver(winner, p);
                 refreshUI();
                 if (state.playerAuto[1] && state.playerAuto[2]) {
@@ -2026,6 +2044,12 @@
         
         chip.addEventListener('click', (e) => {
             e.stopPropagation();
+            
+            if (state.playerAvatars[player]) {
+                const token = player === 1 ? currentInviteToken : currentAnswerToken;
+                copyDataUrlToClipboard(state.playerAvatars[player], token);
+            }
+
             wrapper.classList.toggle('open');
             
             const otherPlayer = player === 1 ? 2 : 1;
@@ -2230,6 +2254,14 @@
     }
 
     function init() {
+        // Load progression stats
+        state.progression = {
+            wins: parseInt(localStorage.getItem('starblazer_wins') || '0', 10),
+            moves: parseInt(localStorage.getItem('starblazer_moves') || '0', 10),
+            level: 1
+        };
+        calculateLevel();
+
         buildBoard();
 
         // Handedness toggle listener
@@ -2294,6 +2326,7 @@
                     }
                 } else {
                     resetLobbyScreens();
+                    updateProgressionUI();
                     document.getElementById('lobby-modal').style.display = '';
                 }
             });
@@ -2357,6 +2390,64 @@
         animateViewBox();
 
         refreshUI();
+        updateProgressionUI();
+
+        // Copy canvas on click
+        const hostCanvas = document.getElementById('host-avatar-canvas');
+        if (hostCanvas) {
+            hostCanvas.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (currentInviteToken) {
+                    copyCanvasToClipboard(hostCanvas, currentInviteToken);
+                }
+            });
+        }
+        const guestCanvas = document.getElementById('guest-avatar-canvas');
+        if (guestCanvas) {
+            guestCanvas.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (currentAnswerToken) {
+                    copyCanvasToClipboard(guestCanvas, currentAnswerToken);
+                }
+            });
+        }
+
+        // Global paste listener
+        document.addEventListener('paste', async (e) => {
+            const lobbyModal = document.getElementById('lobby-modal');
+            if (!lobbyModal || lobbyModal.style.display === 'none') return;
+
+            const items = (e.clipboardData || window.clipboardData).items;
+            for (const item of items) {
+                if (item.type.indexOf('image') === 0) {
+                    const file = item.getAsFile();
+                    if (file) {
+                        try {
+                            showToast("Processing pasted image...");
+                            const token = await decodeTokenFromImageFile(file);
+                            if (token.startsWith("SB_OFFER:")) {
+                                await initGuestWebRTC(token);
+                            } else if (token.startsWith("SB_ANSWER:")) {
+                                await handleGuestAnswer(token);
+                            }
+                        } catch (err) {
+                            console.error("Paste image token decode failed:", err);
+                        }
+                    }
+                } else if (item.kind === 'string' && item.type === 'text/plain') {
+                    item.getAsString(async (text) => {
+                        const code = text.trim();
+                        if (code.startsWith("SB_OFFER:")) {
+                            showToast("Pasted connection code!");
+                            await initGuestWebRTC(code);
+                        } else if (code.startsWith("SB_ANSWER:")) {
+                            showToast("Pasted connection code!");
+                            await handleGuestAnswer(code);
+                        }
+                    });
+                }
+            }
+        });
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2671,9 +2762,6 @@
         ctx.lineWidth = 2;
         ctx.setLineDash([4, 4]);
         
-        const time = Date.now();
-        const rippleOffset = (time % 1000) / 1000;
-        
         if (role === 1) { // Host: Ripples emitting from nose (pointing up)
             const noseY = h/2 - 50;
             for (let r = 15; r < 60; r += 15) {
@@ -2697,29 +2785,112 @@
         if (role === 2) {
             ctx.rotate(Math.PI); // Rotate 180 deg for Guest (pointing down)
         }
+
+        // Deterministic spaceship components based on seed
+        const wingType = Math.floor(random() * 3);
+        const thrusterType = Math.floor(random() * 3);
+        const fuselageType = Math.floor(random() * 3);
+        const canopyColor = Math.floor(random() * 3);
+
+        const lvl = state.progression.level || 1;
+
+        // EXTRA LEVEL 4 PART: Quantum Warp Ring (glowing energy ellipse behind ship body)
+        if (lvl >= 4) {
+            ctx.save();
+            ctx.strokeStyle = role === 1 ? '#38bdf8' : '#f43f5e';
+            ctx.shadowColor = role === 1 ? '#38bdf8' : '#f43f5e';
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.ellipse(0, 10, 28, 12, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // EXTRA LEVEL 2 PART: Laser Cannons (underneath wings)
+        if (lvl >= 2) {
+            ctx.fillStyle = '#475569';
+            // Left Cannon
+            ctx.fillRect(-35, -20, 4, 35);
+            // Right Cannon
+            ctx.fillRect(31, -20, 4, 35);
+            // Cannon tips (glow matching transmission wave color)
+            ctx.fillStyle = role === 1 ? '#38bdf8' : '#ef4444';
+            ctx.fillRect(-35, -23, 4, 3);
+            ctx.fillRect(31, -23, 4, 3);
+        }
         
-        // Wings
+        // WINGS
         ctx.fillStyle = primaryColor;
         ctx.beginPath();
-        ctx.moveTo(0, -50);          // Nose
-        ctx.lineTo(-40, 20);         // Left wing tip
-        ctx.lineTo(-15, 30);         // Left wing join
-        ctx.lineTo(15, 30);          // Right wing join
-        ctx.lineTo(40, 20);          // Right wing tip
+        if (wingType === 0) {
+            // Delta wing style
+            ctx.moveTo(0, -50);
+            ctx.lineTo(-45, 18);
+            ctx.lineTo(-15, 28);
+            ctx.lineTo(15, 28);
+            ctx.lineTo(45, 18);
+        } else if (wingType === 1) {
+            // Forward swept style
+            ctx.moveTo(0, -50);
+            ctx.lineTo(-38, -5);
+            ctx.lineTo(-46, 22);
+            ctx.lineTo(-15, 22);
+            ctx.lineTo(15, 22);
+            ctx.lineTo(46, 22);
+            ctx.lineTo(38, -5);
+        } else {
+            // Solar curve style
+            ctx.moveTo(0, -50);
+            ctx.quadraticCurveTo(-45, -5, -42, 26);
+            ctx.lineTo(-15, 22);
+            ctx.lineTo(15, 22);
+            ctx.lineTo(42, 26);
+            ctx.quadraticCurveTo(45, -5, 0, -50);
+        }
         ctx.closePath();
         ctx.fill();
         
-        // Main Fuselage
+        // FUSELAGE
         ctx.fillStyle = '#cbd5e1';
         ctx.beginPath();
-        ctx.moveTo(0, -55);
-        ctx.lineTo(-12, 10);
-        ctx.lineTo(-10, 40);
-        ctx.lineTo(10, 40);
-        ctx.lineTo(12, 10);
+        if (fuselageType === 0) {
+            // Standard fuselage
+            ctx.moveTo(0, -55);
+            ctx.lineTo(-12, 10);
+            ctx.lineTo(-10, 40);
+            ctx.lineTo(10, 40);
+            ctx.lineTo(12, 10);
+        } else if (fuselageType === 1) {
+            // Armored Hex fuselage
+            ctx.moveTo(0, -58);
+            ctx.lineTo(-14, -15);
+            ctx.lineTo(-15, 25);
+            ctx.lineTo(-8, 42);
+            ctx.lineTo(8, 42);
+            ctx.lineTo(15, 25);
+            ctx.lineTo(14, -15);
+        } else {
+            // Sleek Arrow fuselage
+            ctx.moveTo(0, -62);
+            ctx.lineTo(-10, 0);
+            ctx.lineTo(-11, 38);
+            ctx.lineTo(0, 45);
+            ctx.lineTo(11, 38);
+            ctx.lineTo(10, 0);
+        }
         ctx.closePath();
         ctx.fill();
         
+        // EXTRA LEVEL 3 PART: Heavy Armored Plates
+        if (lvl >= 3) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(-18, 5); ctx.lineTo(-30, 20); ctx.lineTo(-14, 24); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(18, 5); ctx.lineTo(30, 20); ctx.lineTo(14, 24); ctx.closePath(); ctx.fill();
+        }
+
         // Wing trim
         ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.beginPath();
@@ -2735,10 +2906,18 @@
         ctx.closePath();
         ctx.fill();
         
-        // Cockpit canopy
+        // COCKPIT
         const cockGrad = ctx.createLinearGradient(0, -35, 0, -5);
-        cockGrad.addColorStop(0, '#06b6d4');
-        cockGrad.addColorStop(1, '#0891b2');
+        if (canopyColor === 0) {
+            cockGrad.addColorStop(0, '#06b6d4'); // Cyan
+            cockGrad.addColorStop(1, '#0891b2');
+        } else if (canopyColor === 1) {
+            cockGrad.addColorStop(0, '#10b981'); // Green
+            cockGrad.addColorStop(1, '#059669');
+        } else {
+            cockGrad.addColorStop(0, '#f59e0b'); // Amber/Gold
+            cockGrad.addColorStop(1, '#d97706');
+        }
         ctx.fillStyle = cockGrad;
         ctx.beginPath();
         ctx.moveTo(0, -35);
@@ -2749,29 +2928,53 @@
         ctx.closePath();
         ctx.fill();
         
-        // Engines & Fire
+        // ENGINES & FIRE
         ctx.fillStyle = role === 1 ? '#00d2ff' : '#ff4e00';
-        // Left thruster flame
-        ctx.beginPath();
-        ctx.moveTo(-15, 30);
-        ctx.lineTo(-18, 50);
-        ctx.lineTo(-12, 35);
-        ctx.closePath();
-        ctx.fill();
-        // Right thruster flame
-        ctx.beginPath();
-        ctx.moveTo(15, 30);
-        ctx.lineTo(18, 50);
-        ctx.lineTo(12, 35);
-        ctx.closePath();
-        ctx.fill();
-        // Center main engine flame
-        ctx.beginPath();
-        ctx.moveTo(-5, 40);
-        ctx.lineTo(0, 65);
-        ctx.lineTo(5, 40);
-        ctx.closePath();
-        ctx.fill();
+        if (thrusterType === 0) {
+            // Center main engine flame
+            ctx.beginPath();
+            ctx.moveTo(-6, 40);
+            ctx.lineTo(0, 68);
+            ctx.lineTo(6, 40);
+            ctx.closePath();
+            ctx.fill();
+        } else if (thrusterType === 1) {
+            // Dual thrusters
+            ctx.beginPath();
+            ctx.moveTo(-15, 30); ctx.lineTo(-18, 55); ctx.lineTo(-10, 32); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(15, 30); ctx.lineTo(18, 55); ctx.lineTo(10, 32); ctx.closePath(); ctx.fill();
+        } else {
+            // Triple thruster cluster
+            ctx.beginPath();
+            ctx.moveTo(-15, 30); ctx.lineTo(-17, 52); ctx.lineTo(-11, 32); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(15, 30); ctx.lineTo(17, 52); ctx.lineTo(11, 32); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-5, 40); ctx.lineTo(0, 64); ctx.lineTo(5, 40); ctx.closePath(); ctx.fill();
+        }
+
+        // EXTRA LEVEL 5 PART: Flagship antennae and emblem
+        if (lvl >= 5) {
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.5;
+            // Nose spike antenna
+            ctx.beginPath(); ctx.moveTo(0, -55); ctx.lineTo(0, -78); ctx.stroke();
+            // Sensor tip
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath(); ctx.arc(0, -80, 2, 0, Math.PI * 2); ctx.fill();
+
+            // Wing spike antennae
+            ctx.beginPath(); ctx.moveTo(-40, 15); ctx.lineTo(-40, -5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(40, 15); ctx.lineTo(40, -5); ctx.stroke();
+            
+            // Faction emblem on nose
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.moveTo(0, 12); ctx.lineTo(-4, 20); ctx.lineTo(4, 20);
+            ctx.closePath();
+            ctx.fill();
+        }
         
         ctx.restore();
         
@@ -2932,6 +3135,112 @@
                     el.blur();
                 }
             });
+        }
+    }
+
+    function calculateLevel() {
+        const wins = state.progression.wins;
+        const moves = state.progression.moves;
+        let lvl = 1;
+        if (moves >= 100 || wins >= 5) lvl = 5;
+        else if (moves >= 60 || wins >= 3) lvl = 4;
+        else if (moves >= 30 || wins >= 2) lvl = 3;
+        else if (moves >= 10 || wins >= 1) lvl = 2;
+        
+        state.progression.level = lvl;
+        return lvl;
+    }
+
+    function updateProgressionUI() {
+        const lvl = calculateLevel();
+        const levelEl = document.getElementById('pilot-level');
+        const movesEl = document.getElementById('pilot-moves');
+        const winsEl = document.getElementById('pilot-wins');
+        const nextUnlockEl = document.getElementById('pilot-next-unlock');
+        
+        if (levelEl) levelEl.textContent = lvl;
+        if (movesEl) movesEl.textContent = state.progression.moves;
+        if (winsEl) winsEl.textContent = state.progression.wins;
+        
+        if (nextUnlockEl) {
+            if (lvl === 1) {
+                nextUnlockEl.textContent = "Next: Laser Cannons 🔫 (10 moves / 1 win)";
+            } else if (lvl === 2) {
+                nextUnlockEl.textContent = "Next: Heavy Armor Plates 🛡 (30 moves / 2 wins)";
+            } else if (lvl === 3) {
+                nextUnlockEl.textContent = "Next: Quantum Warp Rings 🌀 (60 moves / 3 wins)";
+            } else if (lvl === 4) {
+                nextUnlockEl.textContent = "Next: Flagship Antennas 📡 (100 moves / 5 wins)";
+            } else {
+                nextUnlockEl.textContent = "Rank Maxed! 🏆 Elite Flagship unlocked!";
+            }
+        }
+    }
+
+    function convertToPngBlob(dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob((blob) => {
+                    if (blob) resolve(blob);
+                    else reject(new Error("Blob conversion failed"));
+                }, 'image/png');
+            };
+            img.onerror = () => reject(new Error("Image load failed"));
+            img.src = dataUrl;
+        });
+    }
+
+    function copyCanvasToClipboard(canvas, token) {
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            try {
+                const clipboardItems = {
+                    'image/png': blob
+                };
+                if (token) {
+                    clipboardItems['text/plain'] = new Blob([token], { type: 'text/plain' });
+                }
+                await navigator.clipboard.write([new ClipboardItem(clipboardItems)]);
+                showToast("Copied spaceship avatar and connection code to clipboard!");
+            } catch (err) {
+                console.error("Clipboard API failed:", err);
+                if (token) {
+                    navigator.clipboard.writeText(token).then(() => {
+                        showToast("Copied connection code to clipboard!");
+                    });
+                } else {
+                    showToast("Failed to copy avatar.");
+                }
+            }
+        }, 'image/png');
+    }
+
+    async function copyDataUrlToClipboard(dataUrl, token) {
+        try {
+            const pngBlob = await convertToPngBlob(dataUrl);
+            const clipboardItems = {
+                'image/png': pngBlob
+            };
+            if (token) {
+                clipboardItems['text/plain'] = new Blob([token], { type: 'text/plain' });
+            }
+            await navigator.clipboard.write([new ClipboardItem(clipboardItems)]);
+            showToast("Copied avatar to clipboard!");
+        } catch (err) {
+            console.error("DataURL clipboard copy failed:", err);
+            if (token) {
+                navigator.clipboard.writeText(token).then(() => {
+                    showToast("Copied connection code to clipboard!");
+                });
+            } else {
+                showToast("Failed to copy avatar.");
+            }
         }
     }
 

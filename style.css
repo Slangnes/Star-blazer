@@ -2223,6 +2223,33 @@ body.theme-alabaster .help-piece-item {
     border: 2px solid var(--border-medium);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
+    cursor: pointer;
+    transition: all var(--transition-normal) ease;
+}
+
+.avatar-preview-wrapper:hover {
+    border-color: var(--accent);
+    transform: scale(1.03);
+    box-shadow: 0 12px 30px rgba(139, 92, 246, 0.25);
+}
+
+.avatar-preview-wrapper::after {
+    content: 'Click to Copy';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(139, 92, 246, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity var(--transition-fast) ease;
+}
+
+.avatar-preview-wrapper:hover::after {
+    opacity: 1;
 }
 
 .avatar-canvas {
@@ -2316,7 +2343,8 @@ body.theme-alabaster .help-piece-item {
 }
 
 .qr-container {
-    display: none; /* Handled programmatically, wrappers shown instead */
+    display: block;
+    width: 100%;
 }
 
 .qr-spinner {
@@ -2467,4 +2495,24 @@ body.theme-alabaster .help-piece-item {
     }
 }
 
+/* Pilot Rank Card */
+.lobby-progression-status {
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-md);
+    margin-bottom: var(--space-md);
+    font-size: 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-primary);
+    width: 100%;
+    box-sizing: border-box;
+}
 
+.progression-next-unlock {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-weight: 500;
+}
