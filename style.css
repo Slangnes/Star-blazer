@@ -1484,7 +1484,6 @@ body:not(.light-theme) .theme-icon--moon {
         font-size: 0.82rem;
         font-weight: 600;
         margin: 0;
-        margin-top: 4px;
         white-space: nowrap;
         align-self: start;
     }
@@ -1537,6 +1536,7 @@ body:not(.light-theme) .theme-icon--moon {
         height: 32px;
         padding: 0;
         margin: 0;
+        margin-top: 4px;
         background: rgba(255, 255, 255, 0.04);
         border: 2px solid rgba(255, 255, 255, 0.15);
         border-radius: 50%;
@@ -1604,13 +1604,14 @@ body:not(.light-theme) .theme-icon--moon {
 
     .player-name {
         font-size: 0.75rem;
-        margin-top: 3px;
+        margin-top: 0;
     }
 
     .player-type-btn {
         width: 28px;
         height: 28px;
         font-size: 0.9rem;
+        margin-top: 3px;
     }
 
     .board-frame {
