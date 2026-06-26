@@ -302,7 +302,7 @@
                 
                 <div class="lobby-grid">
                     <!-- Host Area -->
-                    <div class="lobby-panel-side host-side">
+                    <div class="lobby-panel-side host-side" id="lobby-host-side">
                         <div id="host-initial-container" style="width: 100%;">
                             <button class="lobby-action-card" id="role-host-btn" style="width: 100%; border: none;">
                                 <span class="role-icon">📡</span>
@@ -324,7 +324,7 @@
                             </div>
                             
                             <div class="lobby-actions-row mt-md" id="host-actions-row" style="display: none;">
-                                <button class="btn btn--primary btn--sm" id="host-download-btn">
+                                <button class="btn btn--primary btn--sm" id="host-download-btn" style="display: none;">
                                     📥 Download Invite Image
                                 </button>
                                 <button class="btn btn--secondary btn--xs" id="host-avatar-use-btn" title="Use this spaceship as your player avatar">
@@ -333,7 +333,7 @@
                             </div>
                             
                             <div class="dropzone-wrapper mt-md" id="host-response-section" style="display: none;">
-                                <h4 class="dropzone-label">2. Upload Friend's Answer</h4>
+                                <h4 class="dropzone-label" id="host-response-header" style="display: none;">2. Upload Friend's Answer</h4>
                                 <div class="dropzone dropzone--small" id="host-dropzone">
                                     <span class="dropzone-icon">📷</span>
                                     <p class="dropzone-text" id="host-dropzone-text">Drop Answer Beacon here or click to browse</p>
@@ -343,10 +343,10 @@
                         </div>
                     </div>
                     
-                    <div class="lobby-divider"></div>
+                    <div class="lobby-divider" id="lobby-divider"></div>
 
                     <!-- Guest Area -->
-                    <div class="lobby-panel-side guest-side">
+                    <div class="lobby-panel-side guest-side" id="lobby-guest-side">
                         <div id="guest-initial-container" style="width: 100%;">
                             <div class="dropzone lobby-action-card" id="guest-dropzone" style="min-height: 200px;">
                                 <span class="role-icon">📥</span>
@@ -369,7 +369,7 @@
                             </div>
                             
                             <div class="lobby-actions-row mt-md" id="guest-actions-row" style="display: none;">
-                                <button class="btn btn--primary btn--sm" id="guest-download-btn">
+                                <button class="btn btn--primary btn--sm" id="guest-download-btn" style="display: none;">
                                     📥 Download Answer Image
                                 </button>
                                 <button class="btn btn--secondary btn--xs" id="guest-avatar-use-btn" title="Use this spaceship as your player avatar">

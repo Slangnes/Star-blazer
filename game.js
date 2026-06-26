@@ -3354,6 +3354,12 @@
             document.getElementById('host-qr-spinner').style.display = 'flex';
             document.getElementById('host-qr-spinner-text').textContent = 'Gathering network candidates...';
             
+            // Hide guest side and divider
+            const divider = document.getElementById('lobby-divider');
+            if (divider) divider.style.display = 'none';
+            const guestSide = document.getElementById('lobby-guest-side');
+            if (guestSide) guestSide.style.display = 'none';
+            
             // Draw and show host spaceship avatar instantly
             const canvas = document.getElementById('host-avatar-canvas');
             if (canvas) {
@@ -3481,6 +3487,12 @@
             document.getElementById('guest-initial-container').style.display = 'none';
             document.getElementById('guest-active-container').style.display = 'block';
             document.getElementById('guest-qr-spinner').style.display = 'flex';
+            
+            // Hide host side and divider
+            const divider = document.getElementById('lobby-divider');
+            if (divider) divider.style.display = 'none';
+            const hostSide = document.getElementById('lobby-host-side');
+            if (hostSide) hostSide.style.display = 'none';
             
             const guestSpinnerText = document.getElementById('guest-qr-spinner-text');
             if (guestSpinnerText) {
@@ -3701,6 +3713,10 @@
         setDisplay('guest-initial-container', 'block');
         setDisplay('guest-active-container', 'none');
         setDisplay('lobby-text-fallback', 'none');
+        
+        setDisplay('lobby-divider', 'block');
+        setDisplay('lobby-host-side', 'flex');
+        setDisplay('lobby-guest-side', 'flex');
         
         setDisplay('host-qr-spinner', 'flex');
         setText('host-qr-spinner-text', 'Gathering network candidates...');
