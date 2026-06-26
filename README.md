@@ -1,6 +1,5 @@
 # 🌌 StarBlazer
 
-[![Deploy to GitHub Pages](https://github.com/Slangnes/Star-blazer/actions/workflows/static.yml/badge.svg)](https://Slangnes.github.io/Star-blazer/)
 [![Play on GitHub Pages](https://img.shields.io/badge/Play%20Now-GitHub%20Pages-success?style=for-the-badge&logo=github)](https://Slangnes.github.io/Star-blazer/)
 
 A premium, two-player hexagonal strategy game of spatial placement, movement, and encirclement. Play against a friend locally, test your strategies against individual AI players, or sit back and watch two AIs play in attract mode.
