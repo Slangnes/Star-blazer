@@ -13,7 +13,7 @@ Your goal is to completely **surround the opponent's Royal (Queen) chip** so tha
 ### Game Rules
 1. **Initial Placement**: The first chip must be placed at the center of the board.
 2. **Subsequent Placements**: When placing a new chip from your reserve, it must be placed adjacent to at least one of your own chips, and must not touch any of the opponent's chips.
-3. **Movement**: Once a piece is on the board, it can move to other positions as long as the entire group of chips remains connected (the **One-Hive rule**). Unlike placements, movement can place your chip adjacent to opponent pieces.
+3. **Movement**: Once a piece is on the board, it can move to other positions as long as the entire group of chips remains connected (the **One-Field rule**). Unlike placements, movement can place your chip adjacent to opponent pieces.
 4. **Royal Placement**: You must place your Royal chip within your first 4 turns.
 
 ---
@@ -23,7 +23,7 @@ Your goal is to completely **surround the opponent's Royal (Queen) chip** so tha
 | Piece | Icon | Reserve | Movement Description |
 | :--- | :---: | :---: | :--- |
 | **Royal** | ♛ | 1 | Moves exactly **1 space** per turn. Must be protected at all costs. |
-| **Soldier** | 🛡 | 3 | Slides any distance around the **perimeter** of the hive. |
+| **Soldier** | 🛡 | 3 | Slides any distance around the **perimeter** of the field. |
 | **Corvette** | ⎈ | 2 | Moves **1 space** per turn, but can **climb on top** of adjacent pieces and walk across the stack. Exempt from sliding restrictions. |
 | **Hopper** | ⬦ | 3 | **Jumps in a straight line** over one or more chips to the first empty space. Exempt from sliding restrictions. |
 | **General** | ★ | 2 | Slides a **maximum of 3 spaces** along the perimeter. |

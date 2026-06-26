@@ -1,7 +1,7 @@
 /**
  * StarBlazer — Hexagonal Strategy Game
  * Core game logic: hex grid, royal/soldier/corvette/hopper/general tokens, placement rules,
- * one-hive connectivity (stacked grid compatible), dynamic board rendering, panning/zooming, and drawer UI.
+ * one-field connectivity (stacked grid compatible), dynamic board rendering, panning/zooming, and drawer UI.
  */
 (function () {
     'use strict';
@@ -57,6 +57,14 @@
         peer: null,
         conn: null,
         remoteActionInProgress: false,
+
+        // Camera State
+        isManualCamera: false,
+        dragDistance: 0,
+        isDragging: false,
+        draggedDelta: { x: 0, y: 0 },
+        wasJustDragging: false,
+        lastPinchDist: null,
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -182,7 +190,7 @@
      * Can a piece be placed from reserve at (q, r)?
      * - First turn: forced at (0, 0)
      * - Opponent first turn: adjacent to Player 1's piece
-     * - Subsequent turns: adjacent to own color AND NOT adjacent to opponent color (Hive Rule)
+     * - Subsequent turns: adjacent to own color AND NOT adjacent to opponent color (Field Rule)
      */
     function canPlace(q, r, player) {
         if (!isInsideGrid(q, r)) return false;
@@ -870,6 +878,7 @@
     }
 
     function updateTargetViewBox(visibleCoords) {
+        if (state.isManualCamera) return; // Skip auto-fit if manual camera is active
         if (visibleCoords.length === 0) return;
         
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -915,7 +924,15 @@
             
             if (state.totalPieces === 0) {
                 visibleKeys.add('0,0');
+                const centerCell = cellElements.get('0,0');
+                if (centerCell) {
+                    centerCell.group.classList.add('hex-cell--start-pulse');
+                }
             } else {
+                const centerCell = cellElements.get('0,0');
+                if (centerCell) {
+                    centerCell.group.classList.remove('hex-cell--start-pulse');
+                }
                 if (mode.startsWith('place')) {
                     for (let q = -CONFIG.GRID_RADIUS; q <= CONFIG.GRID_RADIUS; q++) {
                         for (let r = -CONFIG.GRID_RADIUS; r <= CONFIG.GRID_RADIUS; r++) {
@@ -1186,6 +1203,7 @@
 
     function handleClick(q, r) {
         if (state.gameOver) return;
+        if (state.wasJustDragging) return;
         if (state.onlineRole !== null && state.currentPlayer !== state.onlineRole) return;
         stopCurrentPlayerAuto();
 
@@ -1563,6 +1581,10 @@
             );
         });
 
+        state.isManualCamera = false;
+        const recenterBtn = document.getElementById('recenter-btn');
+        if (recenterBtn) recenterBtn.classList.remove('active');
+
         hideGameOver();
         refreshUI();
 
@@ -1715,8 +1737,9 @@
         updateRoyalStatus(1);
         updateRoyalStatus(2);
 
-        if (!state.gameOver) {
-            document.getElementById('status-dot').style.background = state.playerColors[state.currentPlayer];
+        const dotEl = document.getElementById('status-dot');
+        if (!state.gameOver && dotEl) {
+            dotEl.style.background = state.playerColors[state.currentPlayer];
         }
 
         updateActionButtons();
@@ -1805,6 +1828,7 @@
 
     function updateStatus() {
         const statusEl = document.getElementById('game-status');
+        if (!statusEl) return;
 
         if (state.gameOver) {
             statusEl.textContent = `Player ${state.winner} wins!`;
@@ -2210,6 +2234,37 @@
             });
         }
 
+        // Initialize camera controls and drag/zoom interactions
+        initCameraControls();
+
+        // Onboarding Welcome Modal logic
+        const helpModal = document.getElementById('help-modal');
+        const helpCloseBtn = document.getElementById('help-close-btn');
+        const helpStartBtn = document.getElementById('help-start-btn');
+        const howToPlayBtn = document.getElementById('how-to-play-btn');
+
+        function openHelp() {
+            if (helpModal) helpModal.style.display = '';
+        }
+        function closeHelp() {
+            if (helpModal) helpModal.style.display = 'none';
+            localStorage.setItem('starblazer_rules_read', 'true');
+        }
+
+        if (howToPlayBtn) {
+            howToPlayBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openHelp();
+            });
+        }
+        if (helpCloseBtn) helpCloseBtn.addEventListener('click', closeHelp);
+        if (helpStartBtn) helpStartBtn.addEventListener('click', closeHelp);
+
+        // Auto show on first visit
+        if (!localStorage.getItem('starblazer_rules_read')) {
+            setTimeout(openHelp, 800);
+        }
+
         // Load handedness preference
         const isLeft = localStorage.getItem('leftHanded') === 'true';
         const gameLayout = document.querySelector('.game-layout');
@@ -2316,6 +2371,233 @@
 
         refreshUI();
         checkRoomURL();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Camera Navigation: Pan & Zoom
+    // ═══════════════════════════════════════════════════════════
+
+    function initCameraControls() {
+        const boardFrame = document.querySelector('.board-frame');
+        const recenterBtn = document.getElementById('recenter-btn');
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        
+        let isPointerDown = false;
+        let startPointer = { x: 0, y: 0 };
+        let startViewBox = { x: 0, y: 0 };
+        let activeTouchPoints = new Map(); // For pinch zoom: pointerId -> clientX/Y
+
+        function updateRecenterButton() {
+            if (recenterBtn) {
+                recenterBtn.classList.toggle('active', state.isManualCamera);
+            }
+        }
+
+        function triggerManualCamera() {
+            state.isManualCamera = true;
+            updateRecenterButton();
+        }
+
+        // --- Recenter ---
+        if (recenterBtn) {
+            recenterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.isManualCamera = false;
+                updateRecenterButton();
+                updateCellVisibilities(); // Recalculate auto-viewbox and transition back
+            });
+        }
+
+        // --- Zooming via Buttons ---
+        function zoom(amount) {
+            triggerManualCamera();
+            const wChange = targetViewBox.w * amount;
+            const hChange = targetViewBox.h * amount;
+            
+            targetViewBox.w += wChange;
+            targetViewBox.h += hChange;
+            
+            // Adjust x and y to zoom relative to center
+            targetViewBox.x -= wChange / 2;
+            targetViewBox.y -= hChange / 2;
+
+            if (!viewBoxAnimationId) {
+                viewBoxAnimationId = requestAnimationFrame(animateViewBox);
+            }
+        }
+
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                zoom(-0.2); // Zoom in by 20%
+            });
+        }
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                zoom(0.25); // Zoom out by 25%
+            });
+        }
+
+        // --- Wheel Zoom ---
+        boardFrame.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            triggerManualCamera();
+            
+            const zoomSpeed = 0.08;
+            const factor = e.deltaY > 0 ? (1 + zoomSpeed) : (1 - zoomSpeed);
+            
+            // Zoom centered on the cursor position
+            const rect = boardFrame.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Convert cursor position to percentages within the viewBox
+            const px = mouseX / rect.width;
+            const py = mouseY / rect.height;
+            
+            const oldW = targetViewBox.w;
+            const oldH = targetViewBox.h;
+            
+            targetViewBox.w *= factor;
+            targetViewBox.h *= factor;
+            
+            // Shift x and y so the point under the mouse cursor remains static
+            targetViewBox.x += (oldW - targetViewBox.w) * px;
+            targetViewBox.y += (oldH - targetViewBox.h) * py;
+
+            // Enforce reasonable zoom limits
+            const minW = 100;
+            const maxW = 2000;
+            if (targetViewBox.w < minW) {
+                const ratio = minW / targetViewBox.w;
+                targetViewBox.w = minW;
+                targetViewBox.h = minW * (rect.height / rect.width || 1);
+                targetViewBox.x += (targetViewBox.w * (1 - ratio)) * px;
+                targetViewBox.y += (targetViewBox.h * (1 - ratio)) * py;
+            } else if (targetViewBox.w > maxW) {
+                const ratio = maxW / targetViewBox.w;
+                targetViewBox.w = maxW;
+                targetViewBox.h = maxW * (rect.height / rect.width || 1);
+                targetViewBox.x += (targetViewBox.w * (1 - ratio)) * px;
+                targetViewBox.y += (targetViewBox.h * (1 - ratio)) * py;
+            }
+
+            if (!viewBoxAnimationId) {
+                viewBoxAnimationId = requestAnimationFrame(animateViewBox);
+            }
+        }, { passive: false });
+
+        // --- Panning & Pinch-to-Zoom (Touch) ---
+        boardFrame.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.camera-controls')) return;
+            if (e.target.closest('.player-panel')) return;
+
+            activeTouchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            if (activeTouchPoints.size === 1) {
+                isPointerDown = true;
+                startPointer = { x: e.clientX, y: e.clientY };
+                startViewBox = { x: targetViewBox.x, y: targetViewBox.y };
+                state.dragDistance = 0;
+                state.isDragging = false;
+            } else if (activeTouchPoints.size === 2) {
+                isPointerDown = false;
+                state.isDragging = false;
+                const pts = Array.from(activeTouchPoints.values());
+                state.lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!activeTouchPoints.has(e.pointerId)) return;
+            activeTouchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            
+            if (activeTouchPoints.size === 1 && isPointerDown) {
+                const dx = e.clientX - startPointer.x;
+                const dy = e.clientY - startPointer.y;
+                const totalDist = Math.hypot(dx, dy);
+                state.dragDistance = totalDist;
+
+                if (totalDist > 6) {
+                    state.isDragging = true;
+                    triggerManualCamera();
+                    
+                    const rect = boardFrame.getBoundingClientRect();
+                    const scaleX = targetViewBox.w / rect.width;
+                    const scaleY = targetViewBox.h / rect.height;
+                    
+                    targetViewBox.x = startViewBox.x - dx * scaleX;
+                    targetViewBox.y = startViewBox.y - dy * scaleY;
+                    
+                    if (!viewBoxAnimationId) {
+                        viewBoxAnimationId = requestAnimationFrame(animateViewBox);
+                    }
+                }
+            } else if (activeTouchPoints.size === 2) {
+                triggerManualCamera();
+                const pts = Array.from(activeTouchPoints.values());
+                const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                
+                if (state.lastPinchDist) {
+                    const factor = state.lastPinchDist / dist;
+                    const rect = boardFrame.getBoundingClientRect();
+                    const midX = ((pts[0].x + pts[1].x) / 2) - rect.left;
+                    const midY = ((pts[0].y + pts[1].y) / 2) - rect.top;
+                    
+                    const px = midX / rect.width;
+                    const py = midY / rect.height;
+                    
+                    const oldW = targetViewBox.w;
+                    const oldH = targetViewBox.h;
+                    
+                    targetViewBox.w *= factor;
+                    targetViewBox.h *= factor;
+                    
+                    targetViewBox.x += (oldW - targetViewBox.w) * px;
+                    targetViewBox.y += (oldH - targetViewBox.h) * py;
+                    
+                    const minW = 100;
+                    const maxW = 2000;
+                    if (targetViewBox.w < minW) {
+                        targetViewBox.w = minW;
+                        targetViewBox.h = minW * (rect.height / rect.width || 1);
+                    } else if (targetViewBox.w > maxW) {
+                        targetViewBox.w = maxW;
+                        targetViewBox.h = maxW * (rect.height / rect.width || 1);
+                    }
+                    
+                    if (!viewBoxAnimationId) {
+                        viewBoxAnimationId = requestAnimationFrame(animateViewBox);
+                    }
+                }
+                state.lastPinchDist = dist;
+            }
+        });
+
+        const handlePointerUp = (e) => {
+            if (!activeTouchPoints.has(e.pointerId)) return;
+            activeTouchPoints.delete(e.pointerId);
+            
+            if (activeTouchPoints.size === 0) {
+                if (state.isDragging) {
+                    state.wasJustDragging = true;
+                    setTimeout(() => { state.wasJustDragging = false; }, 50);
+                }
+                isPointerDown = false;
+                state.isDragging = false;
+            } else if (activeTouchPoints.size === 1) {
+                isPointerDown = true;
+                const remaining = Array.from(activeTouchPoints.values())[0];
+                startPointer = { x: remaining.x, y: remaining.y };
+                startViewBox = { x: targetViewBox.x, y: targetViewBox.y };
+                state.lastPinchDist = null;
+            }
+        };
+
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2592,6 +2874,10 @@
         document.getElementById('reset-btn').disabled = false;
         document.getElementById('undo-btn').disabled = false;
         
+        state.isManualCamera = false;
+        const recenterBtn = document.getElementById('recenter-btn');
+        if (recenterBtn) recenterBtn.classList.remove('active');
+
         refreshUI();
     }
 

@@ -889,6 +889,7 @@ body.theme-alabaster .piece-badge {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    touch-action: none;
 }
 
 .board-frame::before {
@@ -1944,4 +1945,204 @@ body.theme-alabaster .theme-swatch {
         transform: translateY(0);
     }
 }
+
+/* === Interactive Camera Controls === */
+.camera-controls {
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+}
+
+.camera-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--border-medium);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-normal);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+    outline: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body.theme-alabaster .camera-btn {
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.camera-btn:hover {
+    background: var(--bg-card-active);
+    border-color: var(--accent);
+    transform: scale(1.05);
+}
+
+.camera-btn:active {
+    transform: scale(0.95);
+}
+
+.camera-btn--recenter {
+    display: none; /* Hide unless camera is manual */
+}
+
+.camera-btn--recenter.active {
+    display: flex;
+    animation: recenterPulse 2s infinite alternate;
+}
+
+@keyframes recenterPulse {
+    from {
+        border-color: var(--border-medium);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+    }
+    to {
+        border-color: var(--accent);
+        box-shadow: 0 0 10px var(--accent-glow), 0 4px 10px rgba(0, 0, 0, 0.25);
+    }
+}
+
+/* === Help / Instruction Modal === */
+.modal-card--help {
+    max-width: 500px;
+    max-height: 85vh;
+}
+
+.help-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    overflow: hidden;
+}
+
+.help-scroll-container {
+    overflow-y: auto;
+    max-height: 55vh;
+    padding-right: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+/* Custom scrollbar for help container */
+.help-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+.help-scroll-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 3px;
+}
+.help-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+.help-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+body.theme-alabaster .help-scroll-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.02);
+}
+body.theme-alabaster .help-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.help-section h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+}
+
+.help-section p, .help-section ul {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.help-section ul {
+    padding-left: 1.2rem;
+}
+
+.help-section li {
+    margin-bottom: 6px;
+}
+
+.help-pieces-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-top: 8px;
+}
+
+.help-piece-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+body.theme-alabaster .help-piece-item {
+    background: rgba(0, 0, 0, 0.01);
+}
+
+.help-piece-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.help-piece-badge--royal { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); }
+.help-piece-badge--soldier { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25); }
+.help-piece-badge--corvette { background: rgba(192, 132, 252, 0.1); color: #c084fc; border: 1px solid rgba(192, 132, 252, 0.25); }
+.help-piece-badge--hopper { background: rgba(45, 212, 191, 0.1); color: #2dd4bf; border: 1px solid rgba(45, 212, 191, 0.25); }
+.help-piece-badge--general { background: rgba(251, 146, 60, 0.1); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.25); }
+
+#help-start-btn {
+    align-self: center;
+    margin-top: var(--space-xs);
+    width: 100%;
+}
+
+/* === First Turn Start Pulse === */
+.hex-cell--start-pulse .hex-bg {
+    stroke: var(--accent);
+    stroke-width: 1.5px;
+    animation: startCellPulse 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes startCellPulse {
+    from {
+        fill: rgba(139, 92, 246, 0.05);
+        filter: drop-shadow(0 0 2px var(--accent-glow));
+    }
+    to {
+        fill: rgba(139, 92, 246, 0.25);
+        filter: drop-shadow(0 0 12px var(--accent));
+        stroke-width: 2.2px;
+    }
+}
+
 

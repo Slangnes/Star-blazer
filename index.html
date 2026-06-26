@@ -55,6 +55,14 @@
         </header>
 
         <div class="controls">
+            <button id="how-to-play-btn" class="btn btn--secondary" title="How to Play" aria-label="How to Play">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                How to Play
+            </button>
             <button id="online-btn" class="btn btn--secondary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 Play Online
@@ -167,13 +175,24 @@
 
             <!-- Game Board -->
             <main class="board-wrapper">
+
                 <div class="board-frame">
                     <svg id="game-board" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
-                </div>
-
-                <div class="status-bar">
-                    <div class="status-dot" id="status-dot"></div>
-                    <p class="status-text" id="game-status">Player 1's turn — place at the center cell</p>
+                    
+                    <div class="camera-controls">
+                        <button id="zoom-in-btn" class="camera-btn" title="Zoom In" aria-label="Zoom In">＋</button>
+                        <button id="zoom-out-btn" class="camera-btn" title="Zoom Out" aria-label="Zoom Out">－</button>
+                        <button id="recenter-btn" class="camera-btn camera-btn--recenter" title="Recenter Board" aria-label="Recenter Board">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <circle cx="12" cy="12" r="3"/>
+                                <line x1="12" y1="2" x2="12" y2="6"/>
+                                <line x1="12" y1="18" x2="12" y2="22"/>
+                                <line x1="2" y1="12" x2="6" y2="12"/>
+                                <line x1="18" y1="12" x2="22" y2="12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </main>
 
@@ -307,6 +326,69 @@
             <h2 class="game-over-title" id="game-over-title"></h2>
             <p class="game-over-desc" id="game-over-desc"></p>
             <button class="btn btn--primary game-over-play-again" id="game-over-btn">Play Again</button>
+        </div>
+    </div>
+
+    <!-- Help / How to Play Modal -->
+    <div class="modal-overlay" id="help-modal" style="display: none;">
+        <div class="modal-card modal-card--help">
+            <div class="modal-close-btn" id="help-close-btn" title="Close">&times;</div>
+            <h2 class="modal-title">🌌 How to Play StarBlazer</h2>
+            <div class="modal-body help-modal-body">
+                <div class="help-scroll-container">
+                    <section class="help-section">
+                        <h3>Objective</h3>
+                        <p>Surround the opponent's <strong>Royal (♛)</strong> chip completely with other pieces (occupied spaces or blocked slide paths) so that it cannot move.</p>
+                    </section>
+                    
+                    <section class="help-section">
+                        <h3>General Rules</h3>
+                        <ul>
+                            <li><strong>First Placement:</strong> The very first chip must go to the center of the board.</li>
+                            <li><strong>Subsequent Placements:</strong> New reserve pieces must touch at least one of your own chips, and <em>must not touch</em> any opponent chips.</li>
+                            <li><strong>One-Field Rule:</strong> Once on the board, pieces can move, but the entire group of chips (the field) must always remain connected.</li>
+                            <li><strong>Royal Placement:</strong> You must place your Royal chip on the board during one of your first 4 turns.</li>
+                        </ul>
+                    </section>
+
+                    <section class="help-section">
+                        <h3>Meet the Pieces</h3>
+                        <div class="help-pieces-list">
+                            <div class="help-piece-item">
+                                <span class="help-piece-badge help-piece-badge--royal">♛</span>
+                                <div>
+                                    <strong>Royal:</strong> Moves exactly 1 space. Keep it safe!
+                                </div>
+                            </div>
+                            <div class="help-piece-item">
+                                <span class="help-piece-badge help-piece-badge--soldier">🛡</span>
+                                <div>
+                                    <strong>Soldier:</strong> Slides any distance around the outer perimeter of the field.
+                                </div>
+                            </div>
+                            <div class="help-piece-item">
+                                <span class="help-piece-badge help-piece-badge--corvette">⎈</span>
+                                <div>
+                                    <strong>Corvette:</strong> Moves 1 space. Can climb on top of other chips and walk across stacked pieces.
+                                </div>
+                            </div>
+                            <div class="help-piece-item">
+                                <span class="help-piece-badge help-piece-badge--hopper">⬦</span>
+                                <div>
+                                    <strong>Hopper:</strong> Jumps in a straight line over any number of chips to the first empty space.
+                                </div>
+                            </div>
+                            <div class="help-piece-item">
+                                <span class="help-piece-badge help-piece-badge--general">★</span>
+                                <div>
+                                    <strong>General:</strong> Slides along the outer perimeter up to 3 spaces.
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                <button class="btn btn--primary" id="help-start-btn">Let's Play!</button>
+            </div>
         </div>
     </div>
 
