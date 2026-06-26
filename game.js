@@ -51,6 +51,12 @@
         winner: null,
         playerAuto: { 1: false, 2: false },
         autoplayTimer: null,
+
+        // Multiplayer P2P
+        onlineRole: null,                   // 1 = Host, 2 = Guest, null = Offline/Local
+        peer: null,
+        conn: null,
+        remoteActionInProgress: false,
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -1180,6 +1186,7 @@
 
     function handleClick(q, r) {
         if (state.gameOver) return;
+        if (state.onlineRole !== null && state.currentPlayer !== state.onlineRole) return;
         stopCurrentPlayerAuto();
 
         const occupant = getOccupant(q, r);
@@ -1258,6 +1265,10 @@
         const player = state.currentPlayer;
         if (!canPlace(q, r, player)) return;
 
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'place', pieceType: 'royal', q, r });
+        }
+
         pushToBoard(q, r, player, 'royal');
         state.royals[player] = { q, r };
         state.royalPlaced[player] = true;
@@ -1273,6 +1284,10 @@
         const player = state.currentPlayer;
         if (!canPlace(q, r, player) || state.soldierReserveCount[player] <= 0) return;
 
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'place', pieceType: 'soldier', q, r });
+        }
+
         pushToBoard(q, r, player, 'soldier');
         state.soldierReserveCount[player]--;
         state.playerTurnsTaken[player]++;
@@ -1286,6 +1301,10 @@
     function placeCorvette(q, r) {
         const player = state.currentPlayer;
         if (!canPlace(q, r, player) || state.corvetteReserveCount[player] <= 0) return;
+
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'place', pieceType: 'corvette', q, r });
+        }
 
         pushToBoard(q, r, player, 'corvette');
         state.corvetteReserveCount[player]--;
@@ -1301,6 +1320,10 @@
         const player = state.currentPlayer;
         if (!canPlace(q, r, player) || state.hopperReserveCount[player] <= 0) return;
 
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'place', pieceType: 'hopper', q, r });
+        }
+
         pushToBoard(q, r, player, 'hopper');
         state.hopperReserveCount[player]--;
         state.playerTurnsTaken[player]++;
@@ -1315,6 +1338,10 @@
         const player = state.currentPlayer;
         if (!canPlace(q, r, player) || state.generalReserveCount[player] <= 0) return;
 
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'place', pieceType: 'general', q, r });
+        }
+
         pushToBoard(q, r, player, 'general');
         state.generalReserveCount[player]--;
         state.playerTurnsTaken[player]++;
@@ -1327,6 +1354,11 @@
 
     function moveRoyal(toQ, toR) {
         if (!canMoveRoyalTo(toQ, toR)) return;
+
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            const royal = state.royals[state.currentPlayer];
+            sendNetworkMessage({ type: 'move', pieceType: 'royal', fromQ: royal.q, fromR: royal.r, toQ, toR });
+        }
 
         const player = state.currentPlayer;
         const royal = state.royals[player];
@@ -1348,6 +1380,10 @@
         const soldier = state.selectedSoldier;
         if (!soldier || !canMoveSoldierTo(soldier.q, soldier.r, toQ, toR)) return;
 
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'move', pieceType: 'soldier', fromQ: soldier.q, fromR: soldier.r, toQ, toR });
+        }
+
         const player = state.currentPlayer;
         const fromQ = soldier.q, fromR = soldier.r;
 
@@ -1366,6 +1402,10 @@
     function moveCorvette(toQ, toR) {
         const corvette = state.selectedCorvette;
         if (!corvette || !canMoveCorvetteTo(corvette.q, corvette.r, toQ, toR)) return;
+
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'move', pieceType: 'corvette', fromQ: corvette.q, fromR: corvette.r, toQ, toR });
+        }
 
         const player = state.currentPlayer;
         const fromQ = corvette.q, fromR = corvette.r;
@@ -1386,6 +1426,10 @@
         const hopper = state.selectedHopper;
         if (!hopper || !canMoveHopperTo(hopper.q, hopper.r, toQ, toR)) return;
 
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'move', pieceType: 'hopper', fromQ: hopper.q, fromR: hopper.r, toQ, toR });
+        }
+
         const player = state.currentPlayer;
         const fromQ = hopper.q, fromR = hopper.r;
 
@@ -1404,6 +1448,10 @@
     function moveGeneral(toQ, toR) {
         const general = state.selectedGeneral;
         if (!general || !canMoveGeneralTo(general.q, general.r, toQ, toR)) return;
+
+        if (state.onlineRole !== null && state.currentPlayer === state.onlineRole && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'move', pieceType: 'general', fromQ: general.q, fromR: general.r, toQ, toR });
+        }
 
         const player = state.currentPlayer;
         const fromQ = general.q, fromR = general.r;
@@ -1472,6 +1520,10 @@
     function resetGame() {
         stopAllAutoplayTimers();
 
+        if (state.onlineRole !== null && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'reset' });
+        }
+
         state.board.clear();
         state.totalPieces = 0;
         state.currentPlayer = 1;
@@ -1524,6 +1576,10 @@
 
     function undoMove() {
         if (state.moveHistory.length === 0) return;
+
+        if (state.onlineRole !== null && !state.remoteActionInProgress) {
+            sendNetworkMessage({ type: 'undo' });
+        }
 
         if (state.gameOver) {
             state.gameOver = false;
@@ -1667,7 +1723,13 @@
         updateStatus();
         updateCellVisibilities();
 
-        document.getElementById('undo-btn').disabled = state.moveHistory.length === 0;
+        updateMultiplayerCardsUI();
+
+        if (state.onlineRole !== null) {
+            document.getElementById('undo-btn').disabled = (state.moveHistory.length === 0) || (state.currentPlayer !== state.onlineRole);
+        } else {
+            document.getElementById('undo-btn').disabled = state.moveHistory.length === 0;
+        }
     }
 
     function updateRoyalStatus(player) {
@@ -1874,6 +1936,9 @@
         swatches.forEach(swatch => {
             swatch.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (state.onlineRole !== null && player !== state.onlineRole) {
+                    return;
+                }
                 stopCurrentPlayerAuto();
                 const color = swatch.dataset.color;
                 const otherPlayer = player === 1 ? 2 : 1;
@@ -1886,6 +1951,10 @@
 
                 updatePlayerColor(player, color);
                 updateSwatchUI(player, color);
+
+                if (state.onlineRole !== null && !state.remoteActionInProgress) {
+                    sendNetworkMessage({ type: 'color', player, color });
+                }
 
                 if (wrapper) wrapper.classList.remove('open');
             });
@@ -2112,6 +2181,48 @@
         buildBoard();
 
         // Controls
+        const onlineBtn = document.getElementById('online-btn');
+        if (onlineBtn) {
+            onlineBtn.addEventListener('click', () => {
+                if (state.onlineRole !== null) {
+                    if (confirm('Disconnect from current game?')) {
+                        resetToOffline();
+                    }
+                } else {
+                    createLobby();
+                }
+            });
+        }
+
+        const closeBtn = document.getElementById('lobby-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                resetToOffline();
+            });
+        }
+
+        const copyBtn = document.getElementById('lobby-copy-btn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const input = document.getElementById('lobby-link-input');
+                if (input) {
+                    input.select();
+                    input.setSelectionRange(0, 99999);
+                    navigator.clipboard.writeText(input.value).then(() => {
+                        const copyText = document.getElementById('lobby-copy-text');
+                        if (copyText) {
+                            copyText.textContent = 'Copied!';
+                            setTimeout(() => {
+                                copyText.textContent = 'Copy Link';
+                            }, 2000);
+                        }
+                    }).catch(err => {
+                        console.error('Copy failed:', err);
+                    });
+                }
+            });
+        }
+
         document.getElementById('reset-btn').addEventListener('click', () => {
             stopAllAutoplayTimers();
             resetGame();
@@ -2167,6 +2278,350 @@
         animateViewBox();
 
         refreshUI();
+        checkRoomURL();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Multiplayer WebRTC PeerJS P2P Integration
+    // ═══════════════════════════════════════════════════════════
+
+    let toastTimer = null;
+
+    function checkRoomURL() {
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('room');
+        if (roomId) {
+            connectToLobby(roomId);
+        }
+    }
+
+    function connectToLobby(roomId) {
+        state.onlineRole = 2; // Guest
+        updateMultiplayerUI('connecting', 'Connecting to lobby...');
+        
+        document.getElementById('reset-btn').disabled = true;
+        document.getElementById('undo-btn').disabled = true;
+        
+        // Initialize PeerJS
+        state.peer = new Peer();
+        
+        state.peer.on('open', (id) => {
+            console.log('Guest peer opened with ID:', id, '. Connecting to room:', roomId);
+            const conn = state.peer.connect(roomId);
+            setupConnection(conn);
+        });
+
+        state.peer.on('error', (err) => {
+            console.error('Peer connection error:', err);
+            showToast('Lobby connection error. Reverting to offline.');
+            resetToOffline();
+        });
+    }
+
+    function createLobby() {
+        state.onlineRole = 1; // Host
+        updateMultiplayerUI('connecting', 'Creating online lobby...');
+
+        state.peer = new Peer();
+        
+        state.peer.on('open', (id) => {
+            console.log('Host peer opened with ID:', id);
+            const joinLink = window.location.origin + window.location.pathname + '?room=' + id;
+            const input = document.getElementById('lobby-link-input');
+            if (input) input.value = joinLink;
+            
+            updateMultiplayerUI('waiting', 'Lobby created. Waiting for opponent...');
+        });
+
+        state.peer.on('connection', (conn) => {
+            console.log('Opponent connected as Guest!');
+            setupConnection(conn);
+            
+            // Host sends initial state to Guest
+            setTimeout(() => {
+                sendStateSync();
+            }, 500); // Small timeout to ensure data channel is fully ready
+        });
+
+        state.peer.on('error', (err) => {
+            console.error('Peer lobby error:', err);
+            showToast('Matchmaking error. Reverting to offline.');
+            resetToOffline();
+        });
+    }
+
+    function setupConnection(conn) {
+        state.conn = conn;
+        
+        state.conn.on('open', () => {
+            console.log('Data connection established with peer.');
+            showToast('Opponent connected! Game starting.');
+            
+            updateMultiplayerUI('connected', '');
+            
+            // Disable AI controllers for both
+            state.playerAuto = { 1: false, 2: false };
+            stopAllAutoplayTimers();
+            
+            refreshUI();
+        });
+
+        state.conn.on('data', (data) => {
+            console.log('Received remote data:', data);
+            handleIncomingMessage(data);
+        });
+
+        state.conn.on('close', () => {
+            console.log('Connection closed by peer.');
+            showToast('Opponent disconnected. Reverting to local play.');
+            resetToOffline();
+        });
+
+        state.conn.on('error', (err) => {
+            console.error('Connection error:', err);
+            showToast('Connection lost. Reverting to local play.');
+            resetToOffline();
+        });
+    }
+
+    function sendStateSync() {
+        if (!state.conn) return;
+        
+        const boardData = Array.from(state.board.entries());
+        const payload = {
+            type: 'init',
+            board: boardData,
+            playerColors: state.playerColors,
+            currentPlayer: state.currentPlayer,
+            totalPieces: state.totalPieces,
+            playerCounts: state.playerCounts,
+            royals: state.royals,
+            royalPlaced: state.royalPlaced,
+            playerTurnsTaken: state.playerTurnsTaken,
+            soldierReserveCount: state.soldierReserveCount,
+            corvetteReserveCount: state.corvetteReserveCount,
+            hopperReserveCount: state.hopperReserveCount,
+            generalReserveCount: state.generalReserveCount,
+            moveHistory: state.moveHistory,
+            gameOver: state.gameOver,
+            winner: state.winner
+        };
+        
+        sendNetworkMessage(payload);
+    }
+
+    function applyStateSync(data) {
+        state.remoteActionInProgress = true;
+        
+        state.board = new Map(data.board);
+        state.playerColors = data.playerColors;
+        state.currentPlayer = data.currentPlayer;
+        state.totalPieces = data.totalPieces;
+        state.playerCounts = data.playerCounts;
+        state.royals = data.royals;
+        state.royalPlaced = data.royalPlaced;
+        state.playerTurnsTaken = data.playerTurnsTaken;
+        state.soldierReserveCount = data.soldierReserveCount;
+        state.corvetteReserveCount = data.corvetteReserveCount;
+        state.hopperReserveCount = data.hopperReserveCount;
+        state.generalReserveCount = data.generalReserveCount;
+        state.moveHistory = data.moveHistory;
+        state.gameOver = data.gameOver;
+        state.winner = data.winner;
+        
+        document.documentElement.style.setProperty('--p1-color', state.playerColors[1]);
+        document.documentElement.style.setProperty('--p2-color', state.playerColors[2]);
+        
+        updateSwatchUI(1, state.playerColors[1]);
+        updateSwatchUI(2, state.playerColors[2]);
+        
+        // Re-draw cells
+        cellElements.forEach((cell, key) => {
+            const [cq, cr] = key.split(',').map(Number);
+            renderCell(cq, cr);
+        });
+        
+        state.selectedSoldier = null;
+        state.selectedCorvette = null;
+        state.selectedHopper = null;
+        state.selectedGeneral = null;
+        
+        state.remoteActionInProgress = false;
+        
+        refreshUI();
+        
+        // Highlight active actions if any
+        clearHighlights();
+        const available = getAvailableActions();
+        state.actionMode = available[0] || 'place_soldier';
+        
+        if (state.actionMode === 'move_royal') highlightMoveTargets();
+        else if (state.actionMode === 'move_soldier') highlightSoldierTargets();
+        else if (state.actionMode === 'move_corvette') highlightCorvetteTargets();
+        else if (state.actionMode === 'move_hopper') highlightHopperTargets();
+        else if (state.actionMode === 'move_general') highlightGeneralTargets();
+    }
+
+    function handleIncomingMessage(msg) {
+        state.remoteActionInProgress = true;
+        
+        switch (msg.type) {
+            case 'init':
+                applyStateSync(msg);
+                break;
+            case 'place':
+                executePlaceRemote(msg.pieceType, msg.q, msg.r);
+                break;
+            case 'move':
+                executeMoveRemote(msg.pieceType, msg.fromQ, msg.fromR, msg.toQ, msg.toR);
+                break;
+            case 'undo':
+                undoMove();
+                break;
+            case 'reset':
+                resetGame();
+                break;
+            case 'color':
+                executeColorRemote(msg.player, msg.color);
+                break;
+        }
+        
+        state.remoteActionInProgress = false;
+        refreshUI();
+    }
+
+    function executePlaceRemote(pieceType, q, r) {
+        if (pieceType === 'royal') placeRoyal(q, r);
+        else if (pieceType === 'soldier') placeSoldier(q, r);
+        else if (pieceType === 'corvette') placeCorvette(q, r);
+        else if (pieceType === 'hopper') placeHopper(q, r);
+        else if (pieceType === 'general') placeGeneral(q, r);
+    }
+    
+    function executeMoveRemote(pieceType, fromQ, fromR, toQ, toR) {
+        if (pieceType === 'royal') {
+            moveRoyal(toQ, toR);
+        } else if (pieceType === 'soldier') {
+            state.selectedSoldier = { q: fromQ, r: fromR };
+            moveSoldier(toQ, toR);
+        } else if (pieceType === 'corvette') {
+            state.selectedCorvette = { q: fromQ, r: fromR };
+            moveCorvette(toQ, toR);
+        } else if (pieceType === 'hopper') {
+            state.selectedHopper = { q: fromQ, r: fromR };
+            moveHopper(toQ, toR);
+        } else if (pieceType === 'general') {
+            state.selectedGeneral = { q: fromQ, r: fromR };
+            moveGeneral(toQ, toR);
+        }
+    }
+
+    function executeColorRemote(player, color) {
+        state.remoteActionInProgress = true;
+        const otherPlayer = player === 1 ? 2 : 1;
+        if (state.playerColors[otherPlayer] === color) {
+            const oldColor = state.playerColors[player];
+            updatePlayerColor(otherPlayer, oldColor);
+            updateSwatchUI(otherPlayer, oldColor);
+        }
+        updatePlayerColor(player, color);
+        updateSwatchUI(player, color);
+        state.remoteActionInProgress = false;
+    }
+
+    function sendNetworkMessage(msg) {
+        if (state.conn && state.conn.open) {
+            state.conn.send(msg);
+        }
+    }
+
+    function resetToOffline() {
+        state.onlineRole = null;
+        if (state.conn) {
+            state.conn.close();
+            state.conn = null;
+        }
+        if (state.peer) {
+            state.peer.destroy();
+            state.peer = null;
+        }
+        
+        document.getElementById('lobby-modal').style.display = 'none';
+        
+        const url = new URL(window.location);
+        url.searchParams.delete('room');
+        window.history.replaceState({}, document.title, url.pathname);
+        
+        document.getElementById('reset-btn').disabled = false;
+        document.getElementById('undo-btn').disabled = false;
+        
+        refreshUI();
+    }
+
+    function updateMultiplayerUI(status, text) {
+        const modal = document.getElementById('lobby-modal');
+        const statusText = document.getElementById('lobby-status');
+        const spinner = modal ? modal.querySelector('.lobby-spinner') : null;
+        const shareSection = document.getElementById('lobby-share-section');
+        const closeBtn = document.getElementById('lobby-close-btn');
+
+        if (statusText) statusText.textContent = text;
+
+        if (status === 'connecting') {
+            if (modal) modal.style.display = '';
+            if (spinner) spinner.style.display = '';
+            if (shareSection) shareSection.style.display = 'none';
+            if (closeBtn) closeBtn.style.display = 'none';
+        } else if (status === 'waiting') {
+            if (modal) modal.style.display = '';
+            if (spinner) spinner.style.display = '';
+            if (shareSection) shareSection.style.display = '';
+            if (closeBtn) closeBtn.style.display = '';
+        } else if (status === 'connected') {
+            if (modal) modal.style.display = 'none';
+        }
+    }
+
+    function updateMultiplayerCardsUI() {
+        for (const p of [1, 2]) {
+            const btn = document.getElementById(`p${p}-type-btn`);
+            if (!btn) continue;
+            
+            if (state.onlineRole !== null) {
+                btn.disabled = true;
+                btn.style.pointerEvents = 'none';
+                
+                const iconEl = btn.querySelector('.player-type-icon');
+                const labelEl = btn.querySelector('.player-type-label');
+                
+                btn.classList.add('player-type-btn--auto');
+                
+                if (p === 1) {
+                    if (iconEl) iconEl.textContent = state.onlineRole === 1 ? '👤' : '👥';
+                    if (labelEl) labelEl.textContent = state.onlineRole === 1 ? 'Host (You)' : 'Host (Opponent)';
+                } else {
+                    if (iconEl) iconEl.textContent = state.onlineRole === 2 ? '👤' : '👥';
+                    if (labelEl) labelEl.textContent = state.onlineRole === 2 ? 'Guest (You)' : 'Guest (Opponent)';
+                }
+            } else {
+                btn.disabled = false;
+                btn.style.pointerEvents = '';
+                updatePlayerAutoUI(p);
+            }
+        }
+    }
+
+    function showToast(message) {
+        const toast = document.getElementById('online-toast');
+        const text = document.getElementById('online-toast-text');
+        if (!toast || !text) return;
+        text.textContent = message;
+        toast.style.display = '';
+        
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.style.display = 'none';
+        }, 3000);
     }
 
     if (document.readyState === 'loading') {

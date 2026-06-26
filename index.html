@@ -7,6 +7,7 @@
     <meta name="description" content="A two-player hexagonal chip placement strategy game with royal tokens. Surround the opponent's royal to win.">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
 <body>
     <div class="ambient-glow ambient-glow--1"></div>
@@ -54,6 +55,10 @@
         </header>
 
         <div class="controls">
+            <button id="online-btn" class="btn btn--secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Play Online
+            </button>
             <button id="undo-btn" class="btn btn--secondary" disabled>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                 Undo
@@ -261,6 +266,36 @@
                 </div>
             </aside>
         </div> <!-- Close game-layout -->
+    </div>
+
+    <!-- Multiplayer Lobby Modal -->
+    <div class="modal-overlay" id="lobby-modal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-close-btn" id="lobby-close-btn" title="Cancel">&times;</div>
+            <h2 class="modal-title">StarBlazer Multiplayer</h2>
+            <div class="modal-body">
+                <div class="lobby-status-container">
+                    <span class="lobby-spinner"></span>
+                    <p class="lobby-status-text" id="lobby-status">Initializing matchmaking...</p>
+                </div>
+                
+                <div class="lobby-share-section" id="lobby-share-section" style="display: none;">
+                    <p class="lobby-desc">Share this invitation link with your friend:</p>
+                    <div class="lobby-input-group">
+                        <input type="text" id="lobby-link-input" readonly value="">
+                        <button class="btn btn--primary" id="lobby-copy-btn">
+                            <span id="lobby-copy-text">Copy Link</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Online Alert Toast -->
+    <div class="online-toast" id="online-toast" style="display: none;">
+        <span class="online-toast-icon">🌐</span>
+        <span class="online-toast-text" id="online-toast-text">Connected to player!</span>
     </div>
 
     <!-- Game Over Overlay -->
