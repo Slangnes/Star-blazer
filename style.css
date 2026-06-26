@@ -1534,18 +1534,31 @@ body:not(.light-theme) .theme-icon--moon {
         height: 32px;
         padding: 0;
         margin: 0;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border-subtle);
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.15);
         border-radius: 50%;
         font-size: 1rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all var(--transition-normal);
+        position: relative;
+    }
+
+    body.theme-alabaster .player-type-btn {
+        border-color: rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        background: rgba(0, 0, 0, 0.04);
+    }
+
+    .player-card.active .player-type-btn {
+        transform: scale(1.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px -5px var(--accent-glow);
     }
 
     .player-type-btn:hover {
         background: var(--bg-card-active);
-        transform: scale(1.05);
     }
 
     .player-type-label {
